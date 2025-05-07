@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#222222"
+    android:padding="8dp">
+
+    <!-- Лог (верхняя полоса) -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/log_scroll_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:background="#333333">
+
+        <TextView
+            android:id="@+id/log_display"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            tools:text="[00:00:00] Connected\n[00:00:01] Ready" />
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- Основная панель (джойстик + кнопки) -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="16dp">
+
+        <!-- Джойстик СПРАВА (изменено расположение) -->
+        <com.example.zerg_pad.ZergJoystickView
+            android:id="@+id/joystickView"
+            android:layout_width="250dp"
+            android:layout_height="250dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="40dp"
+            android:layout_marginBottom="80dp"/>
+
+        <!-- Центральная часть: Информация о джойстике в столбик -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_centerHorizontal="true"
+            android:layout_centerVertical="true"
+            android:gravity="center"
+            android:background="#333333"
+            android:padding="16dp">
+
+            <!-- Angle -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/angle_label"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id="@+id/angleTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    tools:text="0°"/>
+            </LinearLayout>
+
+            <!-- Power -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/power_label"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id="@+id/powerTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    tools:text="0%"/>
+            </LinearLayout>
+
+            <!-- Direction -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/direction_label"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:id="@+id/directionTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    tools:text="Center"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Кнопки PlayStation 5 СЛЕВА (изменено расположение) -->
+        <FrameLayout
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="40dp">
+
+            <!-- Треугольник (верх - 12 часов) -->
+            <ImageButton
+                android:id="@+id/btn_b"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:background="@drawable/round_button"
+                android:src="@drawable/ic_triangle"
+                android:contentDescription="@string/button_b"
+                android:padding="2dp"
+                android:scaleType="fitCenter"
+                android:layout_gravity="center_horizontal|top"/>
+
+            <!-- Квадрат (лево - 9 часов) -->
+            <ImageButton
+                android:id="@+id/btn_y"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:background="@drawable/round_button"
+                android:src="@drawable/ic_square"
+                android:contentDescription="@string/button_y"
+                android:padding="2dp"
+                android:scaleType="fitCenter"
+                android:layout_gravity="start|center_vertical"/>
+
+            <!-- Круг (право - 3 часа) -->
+            <ImageButton
+                android:id="@+id/btn_a"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:background="@drawable/round_button"
+                android:src="@drawable/ic_circle"
+                android:contentDescription="@string/button_a"
+                android:padding="2dp"
+                android:scaleType="fitCenter"
+                android:layout_gravity="end|center_vertical"/>
+
+            <!-- Крест (низ - 6 часов) -->
+            <ImageButton
+                android:id="@+id/btn_x"
+                android:layout_width="70dp"
+                android:layout_height="70dp"
+                android:background="@drawable/round_button"
+                android:src="@drawable/ic_cross"
+                android:contentDescription="@string/button_x"
+                android:padding="2dp"
+                android:scaleType="fitCenter"
+                android:layout_gravity="center_horizontal|bottom"/>
+        </FrameLayout>
+
+        <!-- Кнопка Left -->
+        <Button
+            android:id="@+id/btn_left"
+            android:layout_width="100dp"
+            android:layout_height="48dp"
+            android:text="@string/btn_left"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/pill_button"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentStart="true"
+            android:layout_marginTop="0dp"
+            android:layout_marginStart="40dp"/>
+
+        <!-- Кнопка Right -->
+        <Button
+            android:id="@+id/btn_right"
+            android:layout_width="100dp"
+            android:layout_height="48dp"
+            android:text="@string/btn_right"
+            android:textSize="18sp"
+            android:textColor="#FFFFFF"
+            android:background="@drawable/pill_button"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="0dp"
+            android:layout_marginEnd="40dp"/>
+
+        <!-- Кнопки Select и Start по центру внизу -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="6dp"
+            android:gravity="center">
+
+            <!-- Кнопка Select -->
+            <Button
+                android:id="@+id/btn_select"
+                android:layout_width="120dp"
+                android:layout_height="48dp"
+                android:text="@string/button_select"
+                android:textSize="14sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/pill_button"
+                android:layout_marginEnd="40dp"/>
+
+            <!-- Кнопка Start -->
+            <Button
+                android:id="@+id/btn_start"
+                android:layout_width="120dp"
+                android:layout_height="48dp"
+                android:text="@string/button_start"
+                android:textSize="14sp"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/pill_button"/>
+        </LinearLayout>
+    </RelativeLayout>
+</LinearLayout>

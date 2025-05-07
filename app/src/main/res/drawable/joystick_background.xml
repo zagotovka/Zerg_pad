@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer circle (gray) -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#7f7f7f" />
+            <size
+                android:width="200dp"
+                android:height="200dp" />
+        </shape>
+    </item>
+
+    <!-- Direction arrows -->
+    <item
+        android:drawable="@drawable/joystick_arrows"
+        android:gravity="center" />
+</layer-list>

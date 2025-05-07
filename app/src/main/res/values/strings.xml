@@ -1,0 +1,41 @@
+<resources>
+    <string name="app_name">Zerg_pad</string>
+    <string name="enable_bluetooth_prompt">Пожалуйста, включите Bluetooth для продолжения</string>
+    <string name="swipe_down_to_refresh_hint">Проведите вниз, чтобы обновить список</string>
+
+    <string name="angle_lab">Angle:</string>
+    <string name="power_lab">Power:</string>
+    <string name="direction_lab">Direc:</string>
+    <string name="none"></string>
+    <string name="front_lab">Front</string>
+    <string name="front_right_lab">Front-Right</string>
+    <string name="right_lab">Right</string>
+    <string name="right_bottom_lab">Right-Bottom</string>
+    <string name="bottom_lab">Bottom</string>
+    <string name="bottom_left_lab">Left-Bottom</string>
+    <string name="left_lab">Left</string>
+    <string name="left_front_lab">Front-Left</string>
+    <string name="center_lab">Center</string>
+    <string name="rights_lab">http://zerokol.com</string>
+
+    <string name="angle_label">Angle:</string>
+    <string name="power_label">Power:</string>
+    <string name="direction_label">Direction:</string>
+    <string name="button_a">A</string>
+    <string name="button_b">B</string>
+    <string name="button_x">X</string>
+    <string name="button_y">Y</string>
+    <string name="button_select">SELECT</string>
+    <string name="button_start">START</string>
+
+    <string name="btn_left">Left</string>
+    <string name="btn_right">Right</string>
+
+    <string name="angle_format">%d°</string>
+    <string name="power_format">%d%%</string>
+
+    <string name="layout_switch_label">Поменять местами джойстик и кнопки</string>
+    <string name="switch_on">Вкл.</string>
+    <string name="switch_off">Откл.</string>
+
+</resources>

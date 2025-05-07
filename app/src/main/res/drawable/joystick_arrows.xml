@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Стрелка вверх -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,10 L40,25 L60,25 Z" />
+
+    <!-- Стрелка вправо -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M90,50 L75,40 L75,60 Z" />
+
+    <!-- Стрелка вниз -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,90 L60,75 L40,75 Z" />
+
+    <!-- Стрелка влево -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10,50 L25,60 L25,40 Z" />
+</vector>

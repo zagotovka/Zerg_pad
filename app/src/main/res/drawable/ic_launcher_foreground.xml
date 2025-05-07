@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <group
+        android:scaleX="0.667"
+        android:scaleY="0.667"
+        android:pivotX="54"
+        android:pivotY="54">
+
+        <!-- Серый круглый фон -->
+        <path
+            android:fillColor="#777777"
+            android:pathData="M54,54m-50,0a50,50 0,1 1,100 0a50,50 0,1 1,-100 0" />
+
+        <!-- Центральный круг теперь прозрачный -->
+        <path
+            android:fillColor="#00000000"
+            android:pathData="M54,54m-22,0a22,22 0,1 1,44 0a22,22 0,1 1,-44 0" />
+
+        <!-- Синий круг (центр) -->
+        <path
+            android:fillColor="#0066FF"
+            android:pathData="M54,54m-17,0a17,17 0,1 1,34 0a17,17 0,1 1,-34 0" />
+
+        <!-- Верхний треугольник -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,15L61,30L47,30Z" />
+
+        <!-- Правый треугольник -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M93,54L78,61L78,47Z" />
+
+        <!-- Нижний треугольник -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M54,93L47,78L61,78Z" />
+
+        <!-- Левый треугольник -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M15,54L30,47L30,61Z" />
+
+        <!-- Тонкие линии от центра -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M54,30L54,15" />
+
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M78,54L93,54" />
+
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M54,78L54,93" />
+
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M30,54L15,54" />
+
+        <!-- Диагональные линии -->
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M72,36L86,22" />
+
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M72,72L86,86" />
+
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M36,72L22,86" />
+
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="2"
+            android:fillColor="#00000000"
+            android:pathData="M36,36L22,22" />
+    </group>
+</vector>

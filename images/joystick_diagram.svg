@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 250 270" xmlns="http://www.w3.org/2000/svg">
+  <!-- Фон и сетка -->
+  <rect x="0" y="0" width="250" height="270" fill="#f0f0f0"/>
+  <line x1="125" y1="45" x2="125" y2="245" stroke="#aaaaaa" stroke-width="1"/>
+  <line x1="25" y1="145" x2="225" y2="145" stroke="#aaaaaa" stroke-width="1"/>
+  
+  <!-- Основной круг джойстика -->
+  <circle cx="125" cy="145" r="100" fill="none" stroke="#333333" stroke-width="2"/>
+  
+  <!-- Оси координат -->
+  <line x1="125" y1="45" x2="125" y2="245" stroke="#2980b9" stroke-width="2"/>
+  <line x1="25" y1="145" x2="225" y2="145" stroke="#2980b9" stroke-width="2"/>
+  
+  <!-- Стрелки к диагональным точкам -->
+  <line x1="125" y1="145" x2="25" y2="45" stroke="#9b59b6" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="125" y1="145" x2="225" y2="45" stroke="#9b59b6" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="125" y1="145" x2="25" y2="245" stroke="#9b59b6" stroke-width="1" stroke-dasharray="3,2"/>
+  <line x1="125" y1="145" x2="225" y2="245" stroke="#9b59b6" stroke-width="1" stroke-dasharray="3,2"/>
+  
+  <!-- Маркеры направлений -->
+  <!-- Центр -->
+  <circle cx="125" cy="145" r="5" fill="#e74c3c"/>
+  <text x="125" y="138" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">Центр</text>
+  <text x="125" y="148" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">(0x7F, 0x7F)</text>
+  
+  <!-- Верх -->
+  <circle cx="125" cy="45" r="5" fill="#3498db"/>
+  <text x="125" y="37" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">Верх</text>
+  <text x="125" y="58" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">(0x7F, 0x00)</text>
+  
+  <!-- Низ -->
+  <circle cx="125" cy="245" r="5" fill="#3498db"/>
+  <text x="125" y="262" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">Низ (0x7F, 0xFF)</text>
+  
+  <!-- Лево -->
+  <circle cx="25" cy="145" r="5" fill="#3498db"/>
+  <text x="25" y="138" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">Лево</text>
+  <text x="25" y="158" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">(0x00, 0x7F)</text>
+  
+  <!-- Право -->
+  <circle cx="225" cy="145" r="5" fill="#3498db"/>
+  <text x="225" y="138" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">Право</text>
+  <text x="225" y="158" font-family="Arial" font-size="7" text-anchor="middle" fill="#333333">(0xFF, 0x7F)</text>
+  
+  <!-- Диагонали -->
+  <circle cx="25" cy="45" r="5" fill="#9b59b6"/>
+  <text x="40" y="37" font-family="Arial" font-size="7" fill="#333333">Верх-Лево</text>
+  <text x="40" y="47" font-family="Arial" font-size="7" fill="#333333">(0x00, 0x00)</text>
+  
+  <circle cx="225" cy="45" r="5" fill="#9b59b6"/>
+  <text x="205" y="37" font-family="Arial" font-size="7" text-anchor="end" fill="#333333">Верх-Право</text>
+  <text x="205" y="47" font-family="Arial" font-size="7" text-anchor="end" fill="#333333">(0xFF, 0x00)</text>
+  
+  <circle cx="25" cy="245" r="5" fill="#9b59b6"/>
+  <text x="40" y="255" font-family="Arial" font-size="7" fill="#333333">Низ-Лево</text>
+  <text x="40" y="265" font-family="Arial" font-size="7" fill="#333333">(0x00, 0xFF)</text>
+  
+  <circle cx="225" cy="245" r="5" fill="#9b59b6"/>
+  <text x="205" y="255" font-family="Arial" font-size="7" text-anchor="end" fill="#333333">Низ-Право</text>
+  <text x="205" y="265" font-family="Arial" font-size="7" text-anchor="end" fill="#333333">(0xFF, 0xFF)</text>
+  
+  <!-- Заголовок -->
+  <text x="125" y="25" font-family="Arial" font-size="9" font-weight="bold" text-anchor="middle" fill="#333333">Диаграмма координат джойстика</text>
+  
+  <!-- Подписи осей -->
+  <text x="235" y="145" font-family="Arial" font-size="9" font-weight="bold" fill="#2980b9">X</text>
+  <text x="125" y="40" font-family="Arial" font-size="9" font-weight="bold" fill="#2980b9">Y</text>
+  
+  <!-- Легенда -->
+  <text x="125" y="245" font-family="Arial" font-size="6" text-anchor="middle" fill="#333333"></text>
+  <text x="125" y="253" font-family="Arial" font-size="6" text-anchor="middle" fill="#333333"></text>
+  <text x="125" y="261" font-family="Arial" font-size="6" text-anchor="middle" fill="#333333"></text>
+  <line x1="92" y1="267" x2="100" y2="267" stroke="#9b59b6" stroke-width="1" stroke-dasharray="3,2"/>
+</svg>

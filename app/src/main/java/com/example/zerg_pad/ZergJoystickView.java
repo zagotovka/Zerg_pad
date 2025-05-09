@@ -16,11 +16,11 @@ public class ZergJoystickView extends View implements Runnable {
     public static final long DEFAULT_LOOP_INTERVAL = 100;
     public static final int FRONT = 3;
     public static final int FRONT_RIGHT = 4;
-    public static final int RIGHT = 5;
+    public static final int LEFT= 5;
     public static final int RIGHT_BOTTOM = 6;
     public static final int BOTTOM = 7;
     public static final int BOTTOM_LEFT = 8;
-    public static final int LEFT = 1;
+    public static final int RIGHT = 1;
     public static final int LEFT_FRONT = 2;
     private static final int DEFAULT_RAY_WIDTH = 10; // Ширина лучей.
 
@@ -270,22 +270,23 @@ public class ZergJoystickView extends View implements Runnable {
 
     private int getDirection() {
         if (lastPower == 0 && lastAngle == 0) {
-            return 0;
+            return 0; // CENTER
         }
 
-        int a;
-        if (lastAngle <= 0) {
-            a = -lastAngle + 90;
-        } else {
-            a = (lastAngle <= 90) ? 90 - lastAngle : 360 - (lastAngle - 90);
-        }
+        int normalizedAngle = (lastAngle % 360 + 360) % 360;
+        int sector = (normalizedAngle + 22) / 45;
 
-        int direction = ((a + 22) / 45) + 1;
-        if (direction > 8) {
-            direction = 1;
+        switch (sector) {
+            case 0: case 8: return FRONT;       // 3 (0-22°)
+            case 1: return FRONT_RIGHT;         // 4 (23-67°)
+            case 2: return LEFT;                // 1 (68-112°) ← Было RIGHT (5)
+            case 3: return RIGHT_BOTTOM;        // 6 (113-157°)
+            case 4: return BOTTOM;              // 7 (158-202°)
+            case 5: return BOTTOM_LEFT;         // 8 (203-247°)
+            case 6: return RIGHT;               // 5 (248-292°) ← Было LEFT (1)
+            case 7: return LEFT_FRONT;          // 2 (293-337°)
+            default: return 0;
         }
-
-        return direction;
     }
 
     public void setOnJoystickMoveListener(OnJoystickMoveListener listener, long repeatInterval) {

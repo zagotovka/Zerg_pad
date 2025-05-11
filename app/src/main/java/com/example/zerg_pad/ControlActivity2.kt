@@ -1,7 +1,6 @@
 package com.example.zerg_pad
 
 import android.Manifest
-import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
@@ -20,15 +19,13 @@ import androidx.core.app.ActivityCompat
 import java.io.IOException
 import java.io.OutputStream
 import java.util.*
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
 
 class ControlActivity2 : ComponentActivity() {
 
     private var btSocket: BluetoothSocket? = null
     private var outputStream: OutputStream? = null
-    private val myuuid: UUID =
-        UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    private val myuuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     private var logDisplay: TextView? = null
     private lateinit var angleTextView: TextView
@@ -38,6 +35,17 @@ class ControlActivity2 : ComponentActivity() {
 
     private var deviceAddress: String? = null
     private var waitingForPermissions = false
+
+    private var calibratedCenterX = JOYSTICK_CENTER
+    private var calibratedCenterY = JOYSTICK_CENTER
+
+    private val xFilter = LowPassFilter(0.25f)
+    private val yFilter = LowPassFilter(0.25f)
+    private var lastSentX = JOYSTICK_CENTER
+    private var lastSentY = JOYSTICK_CENTER
+    private var lastSentTime = 0L
+    private var isInCenter = false
+    private var calibrated = false
 
     companion object {
         const val PREFIX_JOYSTICK = 0xF1.toByte()
@@ -56,8 +64,10 @@ class ControlActivity2 : ComponentActivity() {
         const val STATE_RELEASED = 0x00.toByte()
 
         const val JOYSTICK_CENTER = 127
+        const val DEADZONE_PERCENT = 15
+        const val MIN_UPDATE_INTERVAL = 50L
         const val PERMISSION_REQUEST_CODE = 101
-        const val ENABLE_LOG = false
+        const val ENABLE_LOG = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,7 +108,6 @@ class ControlActivity2 : ComponentActivity() {
         connectToBluetooth()
     }
 
-    // === Полноэкранный режим ===
     private fun setFullscreenMode() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -158,27 +167,36 @@ class ControlActivity2 : ComponentActivity() {
         if (hasFocus) setFullscreenMode()
     }
 
-    // === Управление ===
     private fun setupControls() {
-        joystick.setOnJoystickMoveListener({ angle, power, direction ->
-            angleTextView.text = getString(R.string.angle_format, angle)
-            powerTextView.text = getString(R.string.power_format, power)
-            directionTextView.text = when (direction) {
-                ZergJoystickView.FRONT -> getString(R.string.front_lab)
-                ZergJoystickView.FRONT_RIGHT -> getString(R.string.front_right_lab)
-                //ZergJoystickView.RIGHT -> getString(R.string.right_lab)
-                ZergJoystickView.RIGHT -> getString(R.string.left_lab)  // Инверсия Right/Left
-                ZergJoystickView.RIGHT_BOTTOM -> getString(R.string.right_bottom_lab)
-                ZergJoystickView.BOTTOM -> getString(R.string.bottom_lab)
-                ZergJoystickView.BOTTOM_LEFT -> getString(R.string.bottom_left_lab)
-                //ZergJoystickView.LEFT -> getString(R.string.left_lab)
-                ZergJoystickView.LEFT -> getString(R.string.right_lab)  // Инверсия Left/Right
-                ZergJoystickView.LEFT_FRONT -> getString(R.string.left_front_lab)
-                else -> getString(R.string.center_lab)
-            }
+        joystick.setOnJoystickMoveListener(object : ZergJoystickView.OnJoystickMoveListener {
+            override fun onValueChanged(angle: Int, power: Int, direction: Int) {
+                angleTextView.text = getString(R.string.angle_format, angle)
+                powerTextView.text = getString(R.string.power_format, power)
+                directionTextView.text = when (direction) {
+                    ZergJoystickView.FRONT -> getString(R.string.front_lab)
+                    ZergJoystickView.FRONT_RIGHT -> getString(R.string.front_right_lab)
+                    ZergJoystickView.RIGHT -> getString(R.string.right_lab)
+                    ZergJoystickView.RIGHT_BOTTOM -> getString(R.string.right_bottom_lab)
+                    ZergJoystickView.BOTTOM -> getString(R.string.bottom_lab)
+                    ZergJoystickView.BOTTOM_LEFT -> getString(R.string.bottom_left_lab)
+                    ZergJoystickView.LEFT -> getString(R.string.left_lab)
+                    ZergJoystickView.LEFT_FRONT -> getString(R.string.left_front_lab)
+                    else -> getString(R.string.center_lab)
+                }
 
-            sendJoystickCommand(angle, power)
-        }, ZergJoystickView.DEFAULT_LOOP_INTERVAL)
+                // Автокалибровка при первом касании
+                if (!calibrated && power < 5) {
+                    calibratedCenterX = JOYSTICK_CENTER
+                    calibratedCenterY = JOYSTICK_CENTER
+                    xFilter.reset(calibratedCenterX)
+                    yFilter.reset(calibratedCenterY)
+                    calibrated = true
+                    logToConsole("Центр откалиброван")
+                }
+
+                processJoystickMovement(angle, power)
+            }
+        })
 
         setupTouchButton(R.id.btn_a, BUTTON_A, "Button A")
         setupTouchButton(R.id.btn_b, BUTTON_B, "Button B")
@@ -190,7 +208,102 @@ class ControlActivity2 : ComponentActivity() {
         setupTouchButton(R.id.btn_right, BUTTON_R, "Right")
     }
 
-    @Suppress("ClickableViewAccessibility") // Подавляем предупреждение об Accessibility, т.к. используем performClick вручную
+    private fun processJoystickMovement(angle: Int, power: Int) {
+        if (power < DEADZONE_PERCENT) {
+            sendCenterPosition()
+            return
+        }
+
+        val (rawX, rawY) = calculateRawXY(angle, power)
+        val filteredX = xFilter.filter(rawX)
+        val filteredY = yFilter.filter(rawY)
+
+        if (shouldSendNewValues(filteredX, filteredY)) {
+            sendXYCoordinates(filteredX, filteredY, power)
+            lastSentX = filteredX
+            lastSentY = filteredY
+            lastSentTime = System.currentTimeMillis()
+            isInCenter = false
+        }
+    }
+
+    private fun calculateRawXY(angle: Int, power: Int): Pair<Int, Int> {
+        val radians = Math.toRadians(angle.toDouble())
+        val normalizedPower = (power * (JOYSTICK_CENTER - 1)) / 100
+
+        val x = (cos(radians) * normalizedPower).toInt() + calibratedCenterX
+        val y = (-sin(radians) * normalizedPower).toInt() + calibratedCenterY
+
+        return Pair(x.coerceIn(0, 255), y.coerceIn(0, 255))
+    }
+
+    private fun shouldSendNewValues(x: Int, y: Int): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastSentTime < MIN_UPDATE_INTERVAL) return false
+
+        val xDiff = abs(x - lastSentX)
+        val yDiff = abs(y - lastSentY)
+
+        return xDiff > 5 || yDiff > 5
+    }
+
+    private fun sendCenterPosition() {
+        if (lastSentX != calibratedCenterX || lastSentY != calibratedCenterY) {
+            sendXYCoordinates(calibratedCenterX, calibratedCenterY, 0)
+            lastSentX = calibratedCenterX
+            lastSentY = calibratedCenterY
+            lastSentTime = System.currentTimeMillis()
+            isInCenter = true
+
+            xFilter.reset(calibratedCenterX)
+            yFilter.reset(calibratedCenterY)
+
+            logToConsole("JOY X:  +0 Y:  +0 [CENTERED]")
+        }
+    }
+
+    private fun sendPacketWithRetry(packet: ByteArray, maxRetries: Int = 2) {
+        var attempts = 0
+        while (attempts <= maxRetries) {
+            try {
+                synchronized(this) {
+                    outputStream?.let {
+                        it.write(packet)
+                        it.flush()
+                    }
+                }
+                return
+            } catch (e: Exception) {
+                attempts++
+                if (attempts > maxRetries) {
+                    Log.e("BT_Zerg2", "Send failed after $maxRetries attempts", e)
+                    attemptReconnect()
+                } else {
+                    Thread.sleep(15L * attempts)
+                }
+            }
+        }
+    }
+    private var lastSentPower = 0
+    private fun sendXYCoordinates(x: Int, y: Int, power: Int) {
+        // 🛡️ Защита: не отправлять, если ничего не изменилось
+        if (x == lastSentX && y == lastSentY && power == lastSentPower) return
+
+        val pwr = power.coerceIn(0, 255)
+        val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), pwr.toByte())
+        sendPacketWithRetry(packet)
+
+        val dx = x - calibratedCenterX
+        val dy = y - calibratedCenterY
+        logToConsole("JOY X: ${"%+4d".format(dx)} Y: ${"%+4d".format(dy)} Power: $power")
+
+        lastSentX = x
+        lastSentY = y
+        lastSentPower = power
+        lastSentTime = System.currentTimeMillis()
+    }
+
+    @Suppress("ClickableViewAccessibility")
     private fun setupTouchButton(buttonId: Int, buttonCode: Byte, buttonName: String) {
         val view = findViewById<View>(buttonId)
         view.isClickable = true
@@ -209,9 +322,11 @@ class ControlActivity2 : ComponentActivity() {
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    buttonStates[buttonId] = false
-                    sendButtonCommand(buttonCode, false)
-                    logToConsole("$buttonName released")
+                    if (buttonStates[buttonId] != false) {
+                        buttonStates[buttonId] = false
+                        sendButtonCommand(buttonCode, false)
+                        logToConsole("$buttonName released")
+                    }
                     v.performClick()
                 }
             }
@@ -219,98 +334,20 @@ class ControlActivity2 : ComponentActivity() {
         }
     }
 
-    private fun connectToDevice(device: BluetoothDevice) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
-            ) {
-                Log.e("BT_Zerg2", "BLUETOOTH_CONNECT permission not granted")
-                showToast("Требуется разрешение BLUETOOTH_CONNECT")
-                waitingForPermissions = true
-                requestBluetoothPermissions()
-                return
-            }
-
-            try {
-                btSocket?.close()
-            } catch (e: Exception) {
-                Log.e("BT_Zerg2", "Error closing existing socket", e)
-            }
-
-            logToConsole("Connecting to device: ${device.name}")
-            btSocket = device.createRfcommSocketToServiceRecord(myuuid)
-            btSocket?.connect()
-            outputStream = btSocket?.outputStream
-
-            if (outputStream == null) {
-                throw IOException("Failed to get output stream")
-            }
-
-            showToast("Connected to device")
-            logToConsole("Connected to device: ${device.name}")
-            sendTestPacket()
-        } catch (e: IOException) {
-            Log.e("BT_Zerg2", "Connection failed", e)
-            showToast("Failed to connect: ${e.message}")
-            logToConsole("Connection failed: ${e.message}")
-
-            try {
-                btSocket?.close()
-                btSocket = null
-                outputStream = null
-            } catch (closeException: Exception) {
-                Log.e("BT_Zerg2", "Error closing socket after failed connection", closeException)
-            }
-        } catch (e: SecurityException) {
-            Log.e("BT_Zerg2", "Security exception: ${e.message}")
-            showToast("Bluetooth permission error")
-            requestBluetoothPermissions()
-        }
-    }
-
-    private fun sendTestPacket() {
-        try {
-            for (i in 1..3) {
-                val testCommand = byteArrayOf(0xFE.toByte(), 0x00.toByte(), 0x00.toByte())
-                sendByteCommands(testCommand)
-                logToConsole("Test packet $i sent")
-                Thread.sleep(100)
-            }
-        } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Error sending test packet", e)
-        }
-    }
-
-    private fun joystickToXY(angle: Int, power: Int): Pair<Int, Int> {
-        val radians = Math.toRadians(angle.toDouble())
-        val normalizedPower = (power * 127) / 100
-        // Инвертируем X-координату для исправления Left/Right
-        val x = (JOYSTICK_CENTER - cos(radians) * normalizedPower).toInt().coerceIn(0, 255)
-        val y = (-sin(radians) * normalizedPower + JOYSTICK_CENTER).toInt().coerceIn(0, 255)
-        return Pair(x, y)
-    }
-
-    private fun sendJoystickCommand(angle: Int, power: Int) {
-        val (x, y) = joystickToXY(angle, power)
-        val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte())
-        sendByteCommands(packet)
-    }
+    private var lastButtonStates = mutableMapOf<Byte, Byte>()
 
     private fun sendButtonCommand(buttonCode: Byte, pressed: Boolean) {
         val state = if (pressed) STATE_PRESSED else STATE_RELEASED
+
+        // Предотвращаем повторную отправку того же состояния
+        if (lastButtonStates[buttonCode] == state) return
+        lastButtonStates[buttonCode] = state
+
         val packet = byteArrayOf(PREFIX_BUTTON, buttonCode, state)
+        sendPacketWithRetry(packet)
 
-        try {
-            sendByteCommands(packet)
-
-            val pressState = if (pressed) "pressed" else "released"
-            Log.d("BT_Zerg2", "Button command sent: Button=$buttonCode, State=$pressState, " +
-                    "Raw bytes: 0x${PREFIX_BUTTON.toInt().and(0xFF).toString(16).uppercase()}, " +
-                    "0x${buttonCode.toInt().and(0xFF).toString(16).uppercase()}, " +
-                    "0x${state.toInt().and(0xFF).toString(16).uppercase()}")
-        } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Error sending button command", e)
-        }
+        val pressState = if (pressed) "PRESSED" else "RELEASED"
+        logToConsole("BTN $buttonCode: $pressState [STABLE EVENT] (t=${System.currentTimeMillis()})")
     }
 
     private fun sendByteCommands(commands: ByteArray) {
@@ -320,7 +357,6 @@ class ControlActivity2 : ComponentActivity() {
         }
 
         try {
-            // Явная проверка разрешений для Android 12+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (ActivityCompat.checkSelfPermission(
                         this,
@@ -333,7 +369,6 @@ class ControlActivity2 : ComponentActivity() {
                 }
             }
 
-            // Проверка данных
             if (commands.size >= 2) {
                 when (commands[0]) {
                     PREFIX_JOYSTICK -> {
@@ -352,7 +387,6 @@ class ControlActivity2 : ComponentActivity() {
                 }
             }
 
-            // Отправка с синхронизацией
             synchronized(outputStream!!) {
                 try {
                     outputStream?.apply {
@@ -377,7 +411,6 @@ class ControlActivity2 : ComponentActivity() {
 
     private fun attemptReconnect() {
         try {
-            // Проверка разрешений перед повторным подключением
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (ActivityCompat.checkSelfPermission(
                         this,
@@ -400,6 +433,7 @@ class ControlActivity2 : ComponentActivity() {
             Log.e("BT_Zerg2", "Reconnect failed: ${e.message}")
         }
     }
+
     private fun handleBluetoothPermissionError() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             requestBluetoothPermissions()
@@ -414,7 +448,6 @@ class ControlActivity2 : ComponentActivity() {
         Log.d("BT_Zerg2", "Sent [${commands.size} bytes]: $hex")
     }
 
-    // === Разрешения ===
     private fun checkBluetoothPermissions(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ActivityCompat.checkSelfPermission(
@@ -525,6 +558,20 @@ class ControlActivity2 : ComponentActivity() {
         } catch (e: IOException) {
             Log.e("BT_Zerg2", "Error closing socket", e)
             logToConsole("Error closing connection: ${e.message}")
+        }
+    }
+
+    // === Класс фильтра для сглаживания движения джойстика ===
+    private class LowPassFilter(private val alpha: Float) {
+        private var lastValue = JOYSTICK_CENTER.toFloat()
+
+        fun filter(newValue: Int): Int {
+            lastValue = alpha * newValue + (1 - alpha) * lastValue
+            return lastValue.roundToInt().coerceIn(0, 255)
+        }
+
+        fun reset(value: Int) {
+            lastValue = value.toFloat()
         }
     }
 }

@@ -20,8 +20,8 @@ import androidx.core.app.ActivityCompat
 import java.io.IOException
 import java.io.OutputStream
 import java.util.*
-import kotlin.math.cos
-import kotlin.math.sin
+import kotlin.math.*
+import kotlin.collections.ArrayList
 
 class ControlActivity : ComponentActivity() {
     private var btSocket: BluetoothSocket? = null
@@ -29,20 +29,23 @@ class ControlActivity : ComponentActivity() {
     private val myuuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     private var logDisplay: TextView? = null
-
-    private lateinit var angleTextView: TextView
-    private lateinit var powerTextView: TextView
-    private lateinit var directionTextView: TextView
+    private var angleTextView: TextView? = null
+    private var powerTextView: TextView? = null
+    private var directionTextView: TextView? = null
     private lateinit var joystick: ZergJoystickView
 
-    private var deviceAddress: String? = null
-    private var waitingForPermissions = false
+    private val xFilter = LowPassFilter(0.25f)
+    private val yFilter = LowPassFilter(0.25f)
+    private var lastSentX = 0
+    private var lastSentY = 0
+    private var lastSentTime = 0L
+    private var calibratedCenterX = JOYSTICK_CENTER
+    private var calibratedCenterY = JOYSTICK_CENTER
 
     companion object {
-        const val ENABLE_LOG = false
-
-        const val PREFIX_JOYSTICK = 0xF1.toByte() // NEW
-        const val PREFIX_BUTTON = 0xF0.toByte()   // NEW
+        const val ENABLE_LOG = true
+        const val PREFIX_JOYSTICK = 0xF1.toByte()
+        const val PREFIX_BUTTON = 0xF0.toByte()
 
         const val BUTTON_A = 0x01.toByte()
         const val BUTTON_B = 0x02.toByte()
@@ -57,6 +60,8 @@ class ControlActivity : ComponentActivity() {
         const val STATE_RELEASED = 0x00.toByte()
 
         const val JOYSTICK_CENTER = 127
+        const val DEADZONE_PERCENT = 15
+        const val MIN_UPDATE_INTERVAL = 50L
         const val PERMISSION_REQUEST_CODE = 101
     }
 
@@ -69,35 +74,12 @@ class ControlActivity : ComponentActivity() {
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         setContentView(R.layout.activity_control)
 
-        if (!ENABLE_LOG) {
-            findViewById<View>(R.id.log_scroll_view).visibility = View.GONE
-        } else {
-            logDisplay = findViewById(R.id.log_display)
-        }
-
-        angleTextView = findViewById(R.id.angleTextView)
-        powerTextView = findViewById(R.id.powerTextView)
-        directionTextView = findViewById(R.id.directionTextView)
-        joystick = findViewById(R.id.joystickView)
-
-        deviceAddress = intent.getStringExtra("device_address")?.trim()
-        if (deviceAddress.isNullOrEmpty()) {
-            showToast("Адрес устройства не получен")
-            finish()
-            return
-        }
-
+        initViews()
         setupControls()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (!checkBluetoothPermissions()) {
-                waitingForPermissions = true
-                requestBluetoothPermissions()
-                return
-            }
+        if (checkAndRequestPermissions()) {
+            connectToBluetooth()
         }
-
-        connectToBluetooth()
     }
 
     private fun setFullscreenMode() {
@@ -106,8 +88,7 @@ class ControlActivity : ComponentActivity() {
                 window.setDecorFitsSystemWindows(false)
                 window.insetsController?.let { controller ->
                     controller.hide(WindowInsets.Type.systemBars())
-                    controller.systemBarsBehavior =
-                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    controller.systemBarsBehavior = WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                 }
             } else {
                 @Suppress("DEPRECATION")
@@ -121,7 +102,7 @@ class ControlActivity : ComponentActivity() {
                         )
             }
         } catch (e: Exception) {
-            Log.e("BT_Zerg", "Error setting fullscreen mode: ${e.message}")
+            Log.e("BT_Zerg", "Ошибка установки полноэкранного режима: ${e.message}")
         }
     }
 
@@ -161,42 +142,145 @@ class ControlActivity : ComponentActivity() {
         }
     }
 
+    private fun initViews() {
+        if (!ENABLE_LOG) {
+            findViewById<View>(R.id.log_scroll_view).visibility = View.GONE
+        } else {
+            logDisplay = findViewById(R.id.log_display)
+        }
+
+        angleTextView = findViewById(R.id.angleTextView)
+        powerTextView = findViewById(R.id.powerTextView)
+        directionTextView = findViewById(R.id.directionTextView)
+        joystick = findViewById(R.id.joystickView)
+    }
+
     private fun setupControls() {
-        joystick.setOnJoystickMoveListener({ angle, power, direction ->
-            angleTextView.text = getString(R.string.angle_format, angle)
-            powerTextView.text = getString(R.string.power_format, power)
-
-            directionTextView.text = when (direction) {
-                ZergJoystickView.FRONT -> getString(R.string.front_lab)
-                ZergJoystickView.FRONT_RIGHT -> getString(R.string.front_right_lab)
-                //ZergJoystickView.RIGHT -> getString(R.string.right_lab)
-                ZergJoystickView.RIGHT -> getString(R.string.left_lab)  // Инверсия Right/Left
-                ZergJoystickView.RIGHT_BOTTOM -> getString(R.string.right_bottom_lab)
-                ZergJoystickView.BOTTOM -> getString(R.string.bottom_lab)
-                ZergJoystickView.BOTTOM_LEFT -> getString(R.string.bottom_left_lab)
-                //ZergJoystickView.LEFT -> getString(R.string.left_lab)
-                ZergJoystickView.LEFT -> getString(R.string.right_lab)  // Инверсия Left/Right
-                ZergJoystickView.LEFT_FRONT -> getString(R.string.left_front_lab)
-                else -> getString(R.string.center_lab)
+        // Заменить старый вызов на новый интерфейс ZergJoystickView
+        joystick.setOnJoystickMoveListener(object : ZergJoystickView.OnJoystickMoveListener {
+            override fun onValueChanged(angle: Int, power: Int, direction: Int) {
+                updateDisplay(angle, power, direction)
+                processJoystickMovement(angle, power)
             }
+        })
 
-            sendJoystickCommand(angle, power)
-            logToConsole("Joystick: angle=$angle°, power=$power%, direction=${directionTextView.text}")
-        }, ZergJoystickView.DEFAULT_LOOP_INTERVAL)
+        setupButton(R.id.btn_a, BUTTON_A, "Button A")
+        setupButton(R.id.btn_b, BUTTON_B, "Button B")
+        setupButton(R.id.btn_x, BUTTON_X, "Button X")
+        setupButton(R.id.btn_y, BUTTON_Y, "Button Y")
+        setupButton(R.id.btn_select, BUTTON_SELECT, "SELECT")
+        setupButton(R.id.btn_start, BUTTON_START, "START")
+        setupButton(R.id.btn_left, BUTTON_L, "Left")
+        setupButton(R.id.btn_right, BUTTON_R, "Right")
+    }
 
-        // Кнопки — через onTouchListener
-        setupTouchButton(R.id.btn_a, BUTTON_A, "Button A")
-        setupTouchButton(R.id.btn_b, BUTTON_B, "Button B")
-        setupTouchButton(R.id.btn_x, BUTTON_X, "Button X")
-        setupTouchButton(R.id.btn_y, BUTTON_Y, "Button Y")
-        setupTouchButton(R.id.btn_select, BUTTON_SELECT, "SELECT")
-        setupTouchButton(R.id.btn_start, BUTTON_START, "START")
-        setupTouchButton(R.id.btn_left, BUTTON_L, "Left")
-        setupTouchButton(R.id.btn_right, BUTTON_R, "Right")
+    private fun updateDisplay(angle: Int, power: Int, direction: Int) {
+        angleTextView?.text = getString(R.string.angle_format, angle)
+        powerTextView?.text = getString(R.string.power_format, power)
+
+        directionTextView?.text = when (direction) {
+            ZergJoystickView.FRONT -> getString(R.string.front_lab)
+            ZergJoystickView.FRONT_RIGHT -> getString(R.string.front_right_lab)
+            ZergJoystickView.RIGHT -> getString(R.string.right_lab)
+            ZergJoystickView.RIGHT_BOTTOM -> getString(R.string.right_bottom_lab)
+            ZergJoystickView.BOTTOM -> getString(R.string.bottom_lab)
+            ZergJoystickView.BOTTOM_LEFT -> getString(R.string.bottom_left_lab)
+            ZergJoystickView.LEFT -> getString(R.string.left_lab)
+            ZergJoystickView.LEFT_FRONT -> getString(R.string.left_front_lab)
+            else -> getString(R.string.center_lab)
+        }
+    }
+
+    private fun processJoystickMovement(angle: Int, power: Int) {
+        if (power < DEADZONE_PERCENT) {
+            sendCenterPosition()
+            return
+        }
+
+        val (rawX, rawY) = calculateRawXY(angle, power)
+        val filteredX = xFilter.filter(rawX)
+        val filteredY = yFilter.filter(rawY)
+
+        if (shouldSendNewValues(filteredX, filteredY)) {
+            sendXYCoordinates(filteredX, filteredY, power)
+            lastSentX = filteredX
+            lastSentY = filteredY
+            lastSentTime = System.currentTimeMillis()
+        }
+    }
+
+    private fun calculateRawXY(angle: Int, power: Int): Pair<Int, Int> {
+        val radians = Math.toRadians(angle.toDouble())
+        val normalizedPower = (power * (JOYSTICK_CENTER - 1)) / 100
+
+        val x = (cos(radians) * normalizedPower).toInt() + calibratedCenterX
+        val y = (-sin(radians) * normalizedPower).toInt() + calibratedCenterY
+
+        return Pair(x.coerceIn(0, 255), y.coerceIn(0, 255))
+    }
+
+    private fun shouldSendNewValues(x: Int, y: Int): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastSentTime < MIN_UPDATE_INTERVAL) return false
+
+        val xDiff = abs(x - lastSentX)
+        val yDiff = abs(y - lastSentY)
+
+        return xDiff > 5 || yDiff > 5
+    }
+
+    private fun sendCenterPosition() {
+        if (lastSentX != calibratedCenterX || lastSentY != calibratedCenterY) {
+            sendXYCoordinates(calibratedCenterX, calibratedCenterY, 0)
+            lastSentX = calibratedCenterX
+            lastSentY = calibratedCenterY
+            lastSentTime = System.currentTimeMillis()
+        }
+    }
+    private var lastSentPower = 0
+    private fun sendXYCoordinates(x: Int, y: Int, power: Int) {
+        // 🛡️ Защита: не отправлять, если ничего не изменилось
+        if (x == lastSentX && y == lastSentY && power == lastSentPower) return
+
+        val pwr = power.coerceIn(0, 255)
+        val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), pwr.toByte())
+        sendPacketWithRetry(packet)
+
+        val dx = x - calibratedCenterX
+        val dy = y - calibratedCenterY
+        logToConsole("JOY X: ${"%+4d".format(dx)} Y: ${"%+4d".format(dy)} Power: $power")
+
+        lastSentX = x
+        lastSentY = y
+        lastSentPower = power
+        lastSentTime = System.currentTimeMillis()
+    }
+
+    private fun sendPacketWithRetry(packet: ByteArray, maxRetries: Int = 2) {
+        var attempts = 0
+        while (attempts <= maxRetries) {
+            try {
+                synchronized(this) {
+                    outputStream?.let {
+                        it.write(packet)
+                        it.flush()
+                    }
+                }
+                return
+            } catch (e: Exception) {
+                attempts++
+                if (attempts > maxRetries) {
+                    Log.e("BT_Zerg", "Send failed after $maxRetries attempts", e)
+                    attemptReconnect()
+                } else {
+                    Thread.sleep(15L * attempts)
+                }
+            }
+        }
     }
 
     @Suppress("ClickableViewAccessibility")
-    private fun setupTouchButton(buttonId: Int, buttonCode: Byte, buttonName: String) {
+    private fun setupButton(buttonId: Int, buttonCode: Byte, buttonName: String) {
         val view = findViewById<View>(buttonId)
         view.isClickable = true
         view.isFocusable = true
@@ -228,137 +312,131 @@ class ControlActivity : ComponentActivity() {
         val state = if (pressed) STATE_PRESSED else STATE_RELEASED
         val packet = byteArrayOf(PREFIX_BUTTON, buttonCode, state)
 
+        sendPacketWithRetry(packet)
+    }
+
+    private fun checkAndRequestPermissions(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val hasPermissions =
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                        ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED
+
+            if (!hasPermissions) {
+                requestBluetoothPermissions()
+            }
+
+            hasPermissions
+        } else {
+            true
+        }
+    }
+
+    private fun connectToBluetooth() {
         try {
-            sendByteCommands(packet)
+            val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            if (btManager == null) {
+                showToast("Bluetooth Manager недоступен")
+                Log.e("BT_Zerg", "BluetoothManager is null")
+                finish()
+                return
+            }
 
-            val pressState = if (pressed) "pressed" else "released"
-            Log.d("BT_Zerg2", "Button command sent: Button=$buttonCode, State=$pressState, " +
-                    "Raw bytes: 0x${PREFIX_BUTTON.toInt().and(0xFF).toString(16).uppercase()}, " +
-                    "0x${buttonCode.toInt().and(0xFF).toString(16).uppercase()}, " +
-                    "0x${state.toInt().and(0xFF).toString(16).uppercase()}")
-        } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Error sending button command", e)
-        }
-    }
+            val btAdapter = btManager.adapter
+            if (btAdapter == null) {
+                showToast("Адаптер Bluetooth не найден")
+                Log.e("BT_Zerg", "BluetoothAdapter is null")
+                finish()
+                return
+            }
 
-    private fun joystickToXY(angle: Int, power: Int): Pair<Int, Int> {
-        val radians = Math.toRadians(angle.toDouble())
-        val normalizedPower = (power * 127) / 100
-        val x = (cos(radians) * normalizedPower + JOYSTICK_CENTER).toInt().coerceIn(0, 255)
-        val y = (-sin(radians) * normalizedPower + JOYSTICK_CENTER).toInt().coerceIn(0, 255)
-        return Pair(x, y)
-    }
+            val deviceAddress = intent.getStringExtra("device_address") ?: run {
+                showToast("Адрес устройства не получен")
+                finish()
+                return
+            }
 
-    private fun sendJoystickCommand(angle: Int, power: Int) {
-        if (power < 5) { // Не отправляем при малой мощности
-            return
-        }
-        val (x, y) = joystickToXY(angle, power)
-        val commands = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte())
-        sendByteCommands(commands)
-        Log.d("BT_Zerg2", "Joystick XY: x=$x, y=$y")
-    }
-
-    private fun sendByteCommands(commands: ByteArray) {
-        if (outputStream == null) {
-            logToConsole("Bluetooth not connected, can't send commands")
-            return
-        }
-
-        try {
-            // Явная проверка разрешений для Android 12+
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (ActivityCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.BLUETOOTH_CONNECT
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    logToConsole("Bluetooth permission not granted")
+            val btDevice = try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !checkBluetoothPermissions()) {
+                    showToast("Требуется разрешение BLUETOOTH_CONNECT")
+                    Log.e("BT_Zerg", "BLUETOOTH_CONNECT permission required")
                     requestBluetoothPermissions()
                     return
                 }
+                btAdapter.getRemoteDevice(deviceAddress)
+            } catch (e: IllegalArgumentException) {
+                Log.e("BT_Zerg", "Ошибка getRemoteDevice: ${e.message}")
+                showToast("Адрес Bluetooth некорректный")
+                finish()
+                return
             }
 
-            // Проверка данных
-            if (commands.size >= 2) {
-                when (commands[0]) {
-                    PREFIX_JOYSTICK -> {
-                        if (commands[1] == PREFIX_JOYSTICK || commands[1] == PREFIX_BUTTON ||
-                            commands[2] == PREFIX_JOYSTICK || commands[2] == PREFIX_BUTTON) {
-                            Log.e("BT_Zerg2", "Invalid joystick data contains prefix byte")
-                            return
-                        }
-                    }
-                    PREFIX_BUTTON -> {
-                        if (commands[1] == PREFIX_JOYSTICK || commands[1] == PREFIX_BUTTON) {
-                            Log.e("BT_Zerg2", "Invalid button code contains prefix byte")
-                            return
-                        }
-                    }
-                }
+            connectToDevice(btDevice)
+        } catch (e: Exception) {
+            Log.e("BT_Zerg", "Ошибка при подключении к Bluetooth: ${e.message}")
+            showToast("Ошибка подключения: ${e.message}")
+        }
+    }
+
+    private fun connectToDevice(device: BluetoothDevice) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.e("BT_Zerg", "BLUETOOTH_CONNECT permission not granted")
+                showToast("Нет разрешения на Bluetooth")
+                requestBluetoothPermissions()
+                return
             }
 
-            // Отправка с синхронизацией
-            synchronized(outputStream!!) {
-                try {
-                    outputStream?.apply {
-                        write(commands)
-                        flush()
-                    }
-                    logHexData(commands)
-                } catch (e: SecurityException) {
-                    Log.e("BT_Zerg2", "Security exception: ${e.message}")
-                    handleBluetoothPermissionError()
-                    return
-                }
-            }
+            btSocket?.close()
 
+            logToConsole("Подключение к устройству: ${device.name}")
+            btSocket = device.createRfcommSocketToServiceRecord(myuuid)
+            btSocket?.connect()
+            outputStream = btSocket?.outputStream
+
+            if (outputStream == null) throw IOException("Не удалось получить OutputStream")
+
+            showToast("Соединение установлено: ${device.name}")
+            logToConsole("Соединение установлено: ${device.name}")
         } catch (e: IOException) {
-            Log.e("BT_Zerg2", "Send error: ${e.message}")
-            attemptReconnect()
-        } catch (e: InterruptedException) {
-            Log.w("BT_Zerg2", "Send interrupted", e)
+            Log.e("BT_Zerg", "Ошибка подключения: ${e.message}")
+            showToast("Ошибка подключения: ${e.message}")
+            logToConsole("Ошибка подключения: ${e.message}")
+
+            try {
+                btSocket?.close()
+                btSocket = null
+                outputStream = null
+            } catch (closeException: Exception) {
+                Log.e("BT_Zerg", "Ошибка закрытия сокета", closeException)
+            }
         }
     }
 
     private fun attemptReconnect() {
         try {
-            // Проверка разрешений перед повторным подключением
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (ActivityCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.BLUETOOTH_CONNECT
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    requestBluetoothPermissions()
-                    return
-                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestBluetoothPermissions()
+                return
             }
 
             btSocket?.close()
             val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+            val deviceAddress = intent.getStringExtra("device_address") ?: return
             val device = btManager.adapter.getRemoteDevice(deviceAddress)
             btSocket = device.createRfcommSocketToServiceRecord(myuuid)
             btSocket?.connect()
             outputStream = btSocket?.outputStream
-            logToConsole("Reconnected successfully")
+            logToConsole("Повторное подключение успешно")
         } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Reconnect failed: ${e.message}")
+            Log.e("BT_Zerg", "Ошибка повторного подключения: ${e.message}")
+            showToast("Ошибка переподключения: ${e.message}")
         }
-    }
-    private fun handleBluetoothPermissionError() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            requestBluetoothPermissions()
-        }
-        showToast("Bluetooth permission required")
     }
 
-    private fun logHexData(commands: ByteArray) {
-        val hex = commands.joinToString(" ") {
-            "0x${it.toInt().and(0xFF).toString(16).padStart(2, '0').uppercase()}"
-        }
-        Log.d("BT_Zerg2", "Sent [${commands.size} bytes]: $hex")
-    }
     private fun checkBluetoothPermissions(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
@@ -382,216 +460,31 @@ class ControlActivity : ComponentActivity() {
 
             if (missingPermissions.isNotEmpty()) {
                 ActivityCompat.requestPermissions(this, missingPermissions, PERMISSION_REQUEST_CODE)
-                Log.d("BT_Zerg", "Запрашиваем Bluetooth разрешения для Android 12+")
+                Log.d("BT_Zerg", "Запрос Bluetooth разрешений")
             }
         }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            waitingForPermissions = false
 
+        if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                Log.d("BT_Zerg", "Bluetooth разрешения получены")
+                Log.d("BT_Zerg", "Разрешения Bluetooth получены")
                 connectToBluetooth()
             } else {
-                showToast("Необходимы разрешения для работы Bluetooth")
-                Log.e("BT_Zerg", "Bluetooth разрешения не предоставлены")
+                showToast("Разрешения не получены. Bluetooth не работает.")
+                Log.e("BT_Zerg", "Разрешения Bluetooth отклонены")
             }
         }
     }
 
-    private fun connectToBluetooth() {
-        try {
-            val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-            if (btManager == null) {
-                showToast("Bluetooth Manager недоступен")
-                Log.e("BT_Zerg", "BluetoothManager is null")
-                finish()
-                return
-            }
-
-            val btAdapter = btManager.adapter
-            if (btAdapter == null) {
-                showToast("Адаптер Bluetooth не найден")
-                Log.e("BT_Zerg", "BluetoothAdapter is null")
-                finish()
-                return
-            }
-
-            val btDevice = try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                    !checkBluetoothPermissions()
-                ) {
-                    showToast("Требуется разрешение BLUETOOTH_CONNECT")
-                    Log.e("BT_Zerg", "BLUETOOTH_CONNECT permission required")
-                    waitingForPermissions = true
-                    requestBluetoothPermissions()
-                    return
-                }
-                btAdapter.getRemoteDevice(deviceAddress)
-            } catch (e: IllegalArgumentException) {
-                Log.e("BT_Zerg", "Ошибка getRemoteDevice: ${e.message}")
-                showToast("Адрес Bluetooth некорректный")
-                finish()
-                return
-            }
-
-            if (btDevice == null) {
-                showToast("Не удалось получить Bluetooth-устройство")
-                Log.e("BT_Zerg", "btDevice is null")
-                finish()
-                return
-            }
-
-            connectToDevice(btDevice)
-        } catch (e: Exception) {
-            Log.e("BT_Zerg", "Ошибка при подключении к Bluetooth: ${e.message}")
-            showToast("Ошибка при подключении: ${e.message}")
-        }
+    private fun showToast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
-    private fun connectToDevice(device: BluetoothDevice) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
-            ) {
-                Log.e("BT_Zerg2", "BLUETOOTH_CONNECT permission not granted")
-                showToast("Требуется разрешение BLUETOOTH_CONNECT")
-                waitingForPermissions = true
-                requestBluetoothPermissions()
-                return
-            }
-
-            try {
-                btSocket?.close()
-            } catch (e: Exception) {
-                Log.e("BT_Zerg2", "Error closing existing socket", e)
-            }
-
-            logToConsole("Connecting to device: ${device.name}")
-            btSocket = device.createRfcommSocketToServiceRecord(myuuid)
-            btSocket?.connect()
-            outputStream = btSocket?.outputStream
-
-            if (outputStream == null) {
-                throw IOException("Failed to get output stream")
-            }
-
-            showToast("Connected to device")
-            logToConsole("Connected to device: ${device.name}")
-            sendTestPacket()
-        } catch (e: IOException) {
-            Log.e("BT_Zerg2", "Error connecting to device", e)
-            showToast("Failed to connect to device: ${e.message}")
-            logToConsole("Connection failed: ${e.message}")
-
-            try {
-                btSocket?.close()
-                btSocket = null
-                outputStream = null
-            } catch (closeException: Exception) {
-                Log.e("BT_Zerg2", "Error closing socket after failed connection", closeException)
-            }
-        }
-    }
-    private fun sendTestPacket() {
-        try {
-            for (i in 1..3) {
-                val testCommand = byteArrayOf(0xFE.toByte(), 0x00.toByte(), 0x00.toByte())
-                sendByteCommands(testCommand)
-                logToConsole("Test packet $i sent")
-                Thread.sleep(100)
-            }
-        } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Error sending test packet", e)
-        }
-    }
-    private fun verifyCommandsSent(commands: ByteArray) {
-        val expectedBytes = commands.size
-        var sentBytes = 0
-
-        try {
-            if (outputStream == null) {
-                logToConsole("VerifyCommand: Output stream is null!")
-                return
-            }
-
-            for (i in commands.indices) {
-                outputStream?.write(byteArrayOf(commands[i]))
-                outputStream?.flush()
-                sentBytes++
-                Thread.sleep(5)
-            }
-
-            logToConsole("VerifyCommand: Sent $sentBytes of $expectedBytes bytes")
-
-            if (sentBytes != expectedBytes) {
-                logToConsole("WARNING: Not all bytes were sent! Expected: $expectedBytes, Sent: $sentBytes")
-            }
-        } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Error in verifyCommandsSent", e)
-            logToConsole("VerifyCommand error: ${e.message}")
-        }
-    }
-
-    private fun testSendModes() {
-        val buttonCode = BUTTON_A
-
-        try {
-            val packet1 = byteArrayOf(PREFIX_BUTTON, buttonCode, STATE_PRESSED)
-            outputStream?.write(packet1)
-            outputStream?.flush()
-            logToConsole("Test 1: Standard sending completed")
-            Thread.sleep(500)
-        } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Error in test 1", e)
-        }
-
-        try {
-            outputStream?.write(byteArrayOf(PREFIX_BUTTON))
-            outputStream?.flush()
-            Thread.sleep(10)
-
-            outputStream?.write(byteArrayOf(buttonCode))
-            outputStream?.flush()
-            Thread.sleep(10)
-
-            outputStream?.write(byteArrayOf(STATE_RELEASED))
-            outputStream?.flush()
-            logToConsole("Test 2: Byte-by-byte sending completed")
-        } catch (e: Exception) {
-            Log.e("BT_Zerg2", "Error in test 2", e)
-        }
-    }
-
-    private fun testConnectionSpeed() {
-        Thread {
-            try {
-                logToConsole("Starting speed test...")
-                val startTime = System.currentTimeMillis()
-                val testData = ByteArray(100) { 0x55 }
-
-                for (i in 0 until 10) {
-                    outputStream?.write(testData)
-                    outputStream?.flush()
-                    Thread.sleep(10)
-                }
-
-                val endTime = System.currentTimeMillis()
-                val totalTime = endTime - startTime
-                val bytesPerSecond = (1000 * 1000) / totalTime
-
-                logToConsole("Speed test completed: $bytesPerSecond bytes/sec")
-            } catch (e: Exception) {
-                Log.e("BT_Zerg2", "Error in speed test", e)
-                logToConsole("Speed test error: ${e.message}")
-            }
-        }.start()
-    }
     private fun logToConsole(message: String) {
-        Log.d("BT_Zerg2", message)
+        Log.d("BT_Zerg", message)
 
         if (ENABLE_LOG) {
             logDisplay?.let {
@@ -605,19 +498,24 @@ class ControlActivity : ComponentActivity() {
         }
     }
 
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         try {
-            logToConsole("Closing connection")
+            logToConsole("Закрытие соединения")
             outputStream?.close()
             btSocket?.close()
         } catch (e: IOException) {
-            Log.e("BT_Zerg2", "Error closing socket", e)
-            logToConsole("Error closing connection: ${e.message}")
+            Log.e("BT_Zerg", "Ошибка при закрытии соединения", e)
+            logToConsole("Ошибка при закрытии: ${e.message}")
+        }
+    }
+
+    private class LowPassFilter(private val alpha: Float) {
+        private var lastValue = JOYSTICK_CENTER.toFloat()
+
+        fun filter(newValue: Int): Int {
+            lastValue = alpha * newValue + (1 - alpha) * lastValue
+            return lastValue.roundToInt()
         }
     }
 }

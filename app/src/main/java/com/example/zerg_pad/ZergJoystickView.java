@@ -8,318 +8,361 @@ import android.graphics.Path;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
-public class ZergJoystickView extends View implements Runnable {
-
-    public static final long DEFAULT_LOOP_INTERVAL = 100;
+public class ZergJoystickView extends View {
+    // Direction constants
+    public static final int CENTER = 0;
+    public static final int RIGHT = 1;
+    public static final int LEFT_FRONT = 2;
     public static final int FRONT = 3;
     public static final int FRONT_RIGHT = 4;
-    public static final int LEFT= 5;
+    public static final int LEFT = 5;
     public static final int RIGHT_BOTTOM = 6;
     public static final int BOTTOM = 7;
     public static final int BOTTOM_LEFT = 8;
-    public static final int RIGHT = 1;
-    public static final int LEFT_FRONT = 2;
-    private static final int DEFAULT_RAY_WIDTH = 10; // Ширина лучей.
 
-    private int xPosition = 0;
-    private int yPosition = 0;
-    private double centerX = 0;
-    private double centerY = 0;
+    // Configuration constants
+    private static final int DEFAULT_LOOP_INTERVAL = 50; // ms
+    private static final int MIN_CHANGE_THRESHOLD = 5; // минимальное изменение для отправки
+    private static final int DEFAULT_RAY_WIDTH = 10;
+    private static final float BUTTON_SIZE_RATIO = 0.25f;
+    private static final float JOYSTICK_SIZE_RATIO = 0.75f;
+    private static final float INNER_CIRCLE_RATIO = 1.5f;
+    private static final float ARROW_SIZE_RATIO = 0.8f;
+    private static final float ARROW_POSITION_RATIO = 0.6f;
+
+    // Drawing tools
+    private final Paint mainCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint buttonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint arrowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint clearPaint = new Paint();
+    private final Path rayPath = new Path();
+
+    // Position tracking
+    private int xPosition;
+    private int yPosition;
+    private double centerX;
+    private double centerY;
     private int joystickRadius;
     private int buttonRadius;
-    private float baseRadius;
     private float innerCircleRadius;
-    private Path rayPath;
-    private Paint mainCircle;
-    private Paint button;
-    private Paint arrowPaint;
-    private Paint clearPaint;
-    private OnJoystickMoveListener onJoystickMoveListener;
-    private Thread thread;
-    private long loopInterval = DEFAULT_LOOP_INTERVAL;
-    private int lastAngle = 0;
-    private int lastPower = 0;
+
+    // State management
+    private OnJoystickMoveListener listener;
+    private int lastAngle;
+    private int lastPower;
+    private long lastUpdateTime;
+    private boolean isJoystickActive;
+    private int lastSentAngle;
+    private int lastSentPower;
 
     public ZergJoystickView(Context context) {
         super(context);
-        initJoystickView();
+        init();
     }
 
     public ZergJoystickView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        initJoystickView();
+        init();
     }
 
-    public ZergJoystickView(Context context, AttributeSet attrs, int defaultStyle) {
-        super(context, attrs, defaultStyle);
-        initJoystickView();
+    public ZergJoystickView(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        init();
     }
 
-    protected void initJoystickView() {
-        mainCircle = new Paint(Paint.ANTI_ALIAS_FLAG);
-        mainCircle.setColor(Color.parseColor("#7f7f7f"));
-        mainCircle.setStyle(Paint.Style.FILL_AND_STROKE);
+    private void init() {
+        // Main circle (gray background)
+        mainCirclePaint.setColor(Color.parseColor("#7f7f7f"));
+        mainCirclePaint.setStyle(Paint.Style.FILL_AND_STROKE);
 
-        button = new Paint(Paint.ANTI_ALIAS_FLAG);
-        button.setColor(Color.parseColor("#0066FF"));
-        button.setStyle(Paint.Style.FILL);
+        // Button (blue joystick)
+        buttonPaint.setColor(Color.parseColor("#0066FF"));
+        buttonPaint.setStyle(Paint.Style.FILL);
 
-        arrowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        // Arrows (white indicators)
         arrowPaint.setColor(Color.WHITE);
         arrowPaint.setStyle(Paint.Style.FILL);
 
-        clearPaint = new Paint();
+        // Clear paint for transparent areas
         clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
         clearPaint.setAntiAlias(true);
-
-        rayPath = new Path();
     }
 
     @Override
-    protected void onSizeChanged(int xNew, int yNew, int xOld, int yOld) {
-        super.onSizeChanged(xNew, yNew, xOld, yOld);
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
 
-        xPosition = getWidth() / 2;
-        yPosition = getHeight() / 2;
+        centerX = w / 2.0;
+        centerY = h / 2.0;
+        xPosition = (int) centerX;
+        yPosition = (int) centerY;
 
-        int d = Math.min(xNew, yNew);
-        buttonRadius = (int) (d / 2.0 * 0.25);       // ← размер синей кнопки (оставь как есть или меняй отдельно)
-        joystickRadius = (int) (d / 2.0 * 0.75);     // ← ВНЕШНИЙ радиус серого круга (mainCircle)
-
-        baseRadius = joystickRadius;
-        innerCircleRadius = buttonRadius * 1.5f;   // ← ВНУТРЕННИЙ радиус (прозрачный круг внутри)
+        int size = Math.min(w, h);
+        buttonRadius = (int) (size / 2.0 * BUTTON_SIZE_RATIO);
+        joystickRadius = (int) (size / 2.0 * JOYSTICK_SIZE_RATIO);
+        innerCircleRadius = buttonRadius * INNER_CIRCLE_RATIO;
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        int d = Math.min(measure(widthMeasureSpec), measure(heightMeasureSpec));
-        setMeasuredDimension(d, d);
+        int size = Math.min(measureDimension(widthMeasureSpec), measureDimension(heightMeasureSpec));
+        setMeasuredDimension(size, size);
     }
 
-    private int measure(int measureSpec) {
-        int specMode = MeasureSpec.getMode(measureSpec);
-        int specSize = MeasureSpec.getSize(measureSpec);
-        return (specMode == MeasureSpec.UNSPECIFIED) ? 200 : specSize;
-    }
-
-    private void createRayPath() {
-        rayPath.reset();
-        float rayWidth = DEFAULT_RAY_WIDTH;
-
-        // Углы: 45°, 135°, 225°, 315°
-        for (int angle = 45; angle < 360; angle += 90) {
-            double rad = Math.toRadians(angle);
-
-            // Вектор направления луча
-            float dx = (float) Math.cos(rad);
-            float dy = (float) Math.sin(rad);
-
-            // Перпендикулярный вектор (для ширины луча)
-            float px = -dy;
-            float py = dx;
-
-            // Длина луча = радиус круга
-            float r = baseRadius;
-
-            // Центр
-            float cx = (float) centerX;
-            float cy = (float) centerY;
-
-            // 4 точки прямоугольного луча
-            float x1 = cx + px * (rayWidth / 2);
-            float y1 = cy + py * (rayWidth / 2);
-            float x2 = cx - px * (rayWidth / 2);
-            float y2 = cy - py * (rayWidth / 2);
-            float x3 = x2 + dx * r;
-            float y3 = y2 + dy * r;
-            float x4 = x1 + dx * r;
-            float y4 = y1 + dy * r;
-
-            // Добавляем прямоугольник в path
-            rayPath.moveTo(x1, y1);
-            rayPath.lineTo(x2, y2);
-            rayPath.lineTo(x3, y3);
-            rayPath.lineTo(x4, y4);
-            rayPath.close();
-        }
+    private int measureDimension(int measureSpec) {
+        int mode = MeasureSpec.getMode(measureSpec);
+        int size = MeasureSpec.getSize(measureSpec);
+        return mode == MeasureSpec.UNSPECIFIED ? 200 : size;
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        centerX = getWidth() / 2.0;
-        centerY = getHeight() / 2.0;
+        drawMainComponents(canvas);
+        drawButton(canvas);
+    }
 
-        canvas.drawCircle((float) centerX, (float) centerY, joystickRadius, mainCircle);
+    private void drawMainComponents(Canvas canvas) {
+        // Draw main circle
+        canvas.drawCircle((float) centerX, (float) centerY, joystickRadius, mainCirclePaint);
 
+        // Draw transparent rays
         createRayPath();
         canvas.drawPath(rayPath, clearPaint);
+
+        // Draw inner transparent circle
         canvas.drawCircle((float) centerX, (float) centerY, innerCircleRadius, clearPaint);
 
-        drawArrows(canvas);
-        canvas.drawCircle((float) xPosition, (float) yPosition, buttonRadius, button);
+        // Draw direction arrows
+        drawDirectionArrows(canvas);
     }
 
+    private void createRayPath() {
+        rayPath.reset();
+        float halfWidth = DEFAULT_RAY_WIDTH / 2f;
 
-    private void drawArrows(Canvas canvas) {
-        float arrowSize = buttonRadius * 0.8f;
+        for (int angle = 45; angle < 360; angle += 90) {
+            double radians = Math.toRadians(angle);
+            float cos = (float) Math.cos(radians);
+            float sin = (float) Math.sin(radians);
 
-        drawArrow(canvas, (float) centerX, (float) (centerY - joystickRadius * 0.6), 0, arrowSize);
-        drawArrow(canvas, (float) (centerX + joystickRadius * 0.6), (float) centerY, 90, arrowSize);
-        drawArrow(canvas, (float) centerX, (float) (centerY + joystickRadius * 0.6), 180, arrowSize);
-        drawArrow(canvas, (float) (centerX - joystickRadius * 0.6), (float) centerY, 270, arrowSize);
+            float px = -sin * halfWidth;
+            float py = cos * halfWidth;
+
+            float cx = (float) centerX;
+            float cy = (float) centerY;
+
+            rayPath.moveTo(cx + px, cy + py);
+            rayPath.lineTo(cx - px, cy - py);
+            rayPath.lineTo(cx - px + cos * joystickRadius, cy - py + sin * joystickRadius);
+            rayPath.lineTo(cx + px + cos * joystickRadius, cy + py + sin * joystickRadius);
+            rayPath.close();
+        }
     }
 
-    private void drawArrow(Canvas canvas, float x, float y, int rotation, float size) {
+    private void drawDirectionArrows(Canvas canvas) {
+        float arrowSize = buttonRadius * ARROW_SIZE_RATIO;
+        float offset = joystickRadius * ARROW_POSITION_RATIO;
+
+        // Top arrow
+        drawArrow(canvas, (float) centerX, (float) centerY - offset, 0, arrowSize);
+        // Right arrow
+        drawArrow(canvas, (float) centerX + offset, (float) centerY, 90, arrowSize);
+        // Bottom arrow
+        drawArrow(canvas, (float) centerX, (float) centerY + offset, 180, arrowSize);
+        // Left arrow
+        drawArrow(canvas, (float) centerX - offset, (float) centerY, 270, arrowSize);
+    }
+
+    private void drawArrow(Canvas canvas, float x, float y, float rotation, float size) {
         canvas.save();
         canvas.translate(x, y);
         canvas.rotate(rotation);
 
         Path arrow = new Path();
         arrow.moveTo(0, -size);
-        arrow.lineTo(size / 2.0f, 0);
-        arrow.lineTo(-size / 2.0f, 0);
+        arrow.lineTo(size / 2, 0);
+        arrow.lineTo(-size / 2, 0);
         arrow.close();
 
         canvas.drawPath(arrow, arrowPaint);
         canvas.restore();
     }
 
+    private void drawButton(Canvas canvas) {
+        canvas.drawCircle(xPosition, yPosition, buttonRadius, buttonPaint);
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        xPosition = (int) event.getX();
-        yPosition = (int) event.getY();
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                handleTouchDown(event);
+                return true;
 
-        double abs = Math.sqrt(Math.pow(xPosition - centerX, 2) + Math.pow(yPosition - centerY, 2));
-        if (abs > joystickRadius) {
-            xPosition = (int) ((xPosition - centerX) * joystickRadius / abs + centerX);
-            yPosition = (int) ((yPosition - centerY) * joystickRadius / abs + centerY);
+            case MotionEvent.ACTION_MOVE:
+                handleTouchMove(event);
+                return true;
+
+            case MotionEvent.ACTION_UP:
+                handleTouchUp();
+                return performClick();
+        }
+        return super.onTouchEvent(event);
+    }
+
+    private void handleTouchDown(MotionEvent event) {
+        isJoystickActive = true;
+        updatePosition(event.getX(), event.getY());
+        sendInitialPosition();
+    }
+
+    private void handleTouchMove(MotionEvent event) {
+        updatePosition(event.getX(), event.getY());
+        checkAndSendPositionUpdate();
+    }
+
+    private void handleTouchUp() {
+        isJoystickActive = false;
+        resetPosition();
+        sendReleaseEvent();
+    }
+
+    private void updatePosition(float x, float y) {
+        xPosition = (int) x;
+        yPosition = (int) y;
+
+        // Constrain to joystick circle
+        double dx = xPosition - centerX;
+        double dy = yPosition - centerY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > joystickRadius) {
+            xPosition = (int) (centerX + dx * joystickRadius / distance);
+            yPosition = (int) (centerY + dy * joystickRadius / distance);
         }
 
         invalidate();
+    }
 
-        if (event.getAction() == MotionEvent.ACTION_UP) {
-            xPosition = (int) centerX;
-            yPosition = (int) centerY;
-            lastAngle = 0;
-            lastPower = 0;
+    private void sendInitialPosition() {
+        int angle = calculateAngle();
+        int power = calculatePower();
 
-            if (thread != null) thread.interrupt();
+        sendPositionUpdate(angle, power);
+        lastSentAngle = angle;
+        lastSentPower = power;
+        lastUpdateTime = System.currentTimeMillis();
+    }
 
-            if (onJoystickMoveListener != null) {
-                onJoystickMoveListener.onValueChanged(0, 0, 0);
-            }
+    private void checkAndSendPositionUpdate() {
+        int newAngle = calculateAngle();
+        int newPower = calculatePower();
+        long currentTime = System.currentTimeMillis();
 
-            performClick();
-            invalidate();
-        } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
-            if (thread != null && thread.isAlive()) {
-                thread.interrupt();
-            }
+        boolean significantChange = Math.abs(newAngle - lastSentAngle) > MIN_CHANGE_THRESHOLD ||
+                Math.abs(newPower - lastSentPower) > MIN_CHANGE_THRESHOLD;
 
-            thread = new Thread(this);
-            thread.start();
+        boolean timeElapsed = (currentTime - lastUpdateTime) >= DEFAULT_LOOP_INTERVAL;
 
-            if (onJoystickMoveListener != null) {
-                onJoystickMoveListener.onValueChanged(getAngle(), getPower(), getDirection());
-            }
+        if (significantChange || timeElapsed) {
+            sendPositionUpdate(newAngle, newPower);
+            lastSentAngle = newAngle;
+            lastSentPower = newPower;
+            lastUpdateTime = currentTime;
         }
+    }
 
-        return true;
+    private void sendPositionUpdate(int angle, int power) {
+        lastAngle = angle;
+        lastPower = power;
+
+        if (listener != null) {
+            int direction = calculateDirection(angle, power);
+            listener.onValueChanged(angle, power, direction);
+            Log.d("Joystick", String.format("X: %+3d Y: %+3d Power: %3d",
+                    getXValue(angle, power), getYValue(angle, power), power));
+        }
+    }
+
+    private void sendReleaseEvent() {
+        if (listener != null) {
+            listener.onValueChanged(0, 0, CENTER);
+            Log.d("Joystick", "Released: X: 0 Y: 0 Power: 0");
+        }
+        resetState();
+    }
+
+    private void resetPosition() {
+        xPosition = (int) centerX;
+        yPosition = (int) centerY;
+        invalidate();
+    }
+
+    private void resetState() {
+        lastAngle = 0;
+        lastPower = 0;
+        lastSentAngle = 0;
+        lastSentPower = 0;
+        lastUpdateTime = 0;
+    }
+
+    private int calculateAngle() {
+        double dx = xPosition - centerX;
+        double dy = yPosition - centerY;
+
+        if (dx == 0 && dy == 0) return 0;
+
+        double angle = Math.toDegrees(Math.atan2(-dy, dx));
+        return (int) ((angle + 450) % 360); // Normalize to 0-360
+    }
+
+    private int calculatePower() {
+        double dx = xPosition - centerX;
+        double dy = yPosition - centerY;
+        double distance = Math.sqrt(dx * dx + dy * dy);
+        return (int) Math.min(100, (distance / joystickRadius) * 100);
+    }
+
+    private int calculateDirection(int angle, int power) {
+        if (power == 0) return CENTER;
+
+        int sector = ((angle + 22) / 45) % 8;
+        switch (sector) {
+            case 0: return FRONT;
+            case 1: return FRONT_RIGHT;
+            case 2: return RIGHT;
+            case 3: return RIGHT_BOTTOM;
+            case 4: return BOTTOM;
+            case 5: return BOTTOM_LEFT;
+            case 6: return LEFT;
+            case 7: return LEFT_FRONT;
+            default: return CENTER;
+        }
+    }
+
+    private int getXValue(int angle, int power) {
+        return (int) (Math.cos(Math.toRadians(angle)) * power);
+    }
+
+    private int getYValue(int angle, int power) {
+        return (int) (-Math.sin(Math.toRadians(angle)) * power);
     }
 
     @Override
     public boolean performClick() {
-        return super.performClick();
+        super.performClick();
+        return true;
     }
 
-    private int getAngle() {
-        final double RAD = 57.2957795;
-
-        if (xPosition > centerX) {
-            if (yPosition < centerY) {
-                return lastAngle = (int) (Math.atan((yPosition - centerY) / (xPosition - centerX)) * RAD + 90);
-            } else if (yPosition > centerY) {
-                return lastAngle = (int) (Math.atan((yPosition - centerY) / (xPosition - centerX)) * RAD) + 90;
-            } else {
-                return lastAngle = 90;
-            }
-        } else if (xPosition < centerX) {
-            if (yPosition < centerY) {
-                return lastAngle = (int) (Math.atan((yPosition - centerY) / (xPosition - centerX)) * RAD - 90);
-            } else if (yPosition > centerY) {
-                return lastAngle = (int) (Math.atan((yPosition - centerY) / (xPosition - centerX)) * RAD) - 90;
-            } else {
-                return lastAngle = -90;
-            }
-        } else {
-            if (yPosition <= centerY) {
-                return lastAngle = 0;
-            } else {
-                return lastAngle = (lastAngle < 0) ? -180 : 180;
-            }
-        }
-    }
-
-    private int getPower() {
-        lastPower = (int) (100 * Math.sqrt(Math.pow(xPosition - centerX, 2) + Math.pow(yPosition - centerY, 2)) / joystickRadius);
-        return lastPower;
-    }
-
-    private int getDirection() {
-        if (lastPower == 0 && lastAngle == 0) {
-            return 0; // CENTER
-        }
-
-        int normalizedAngle = (lastAngle % 360 + 360) % 360;
-        int sector = (normalizedAngle + 22) / 45;
-
-        switch (sector) {
-            case 0: case 8: return FRONT;       // 3 (0-22°)
-            case 1: return FRONT_RIGHT;         // 4 (23-67°)
-            case 2: return LEFT;                // 1 (68-112°) ← Было RIGHT (5)
-            case 3: return RIGHT_BOTTOM;        // 6 (113-157°)
-            case 4: return BOTTOM;              // 7 (158-202°)
-            case 5: return BOTTOM_LEFT;         // 8 (203-247°)
-            case 6: return RIGHT;               // 5 (248-292°) ← Было LEFT (1)
-            case 7: return LEFT_FRONT;          // 2 (293-337°)
-            default: return 0;
-        }
-    }
-
-    public void setOnJoystickMoveListener(OnJoystickMoveListener listener, long repeatInterval) {
-        this.onJoystickMoveListener = listener;
-        this.loopInterval = repeatInterval;
+    public void setOnJoystickMoveListener(OnJoystickMoveListener listener) {
+        this.listener = listener;
     }
 
     public interface OnJoystickMoveListener {
         void onValueChanged(int angle, int power, int direction);
-    }
-
-    @Override
-    public void run() {
-        while (!Thread.currentThread().isInterrupted()) {
-            post(() -> {
-                if (onJoystickMoveListener != null) {
-                    onJoystickMoveListener.onValueChanged(getAngle(), getPower(), getDirection());
-                }
-            });
-
-            try {
-                Thread.sleep(loopInterval);
-            } catch (InterruptedException e) {
-                break;
-            }
-        }
-    }
-
-    @Override
-    protected void onDetachedFromWindow() {
-        super.onDetachedFromWindow();
-        if (thread != null && thread.isAlive()) {
-            thread.interrupt();
-        }
     }
 }

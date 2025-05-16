@@ -330,16 +330,19 @@ public class ZergJoystickView extends View {
     private int calculateDirection(int angle, int power) {
         if (power == 0) return CENTER;
 
-        int sector = ((angle + 22) / 45) % 8;
+        // Поворачиваем систему координат на -90°, чтобы 0° стало вверх (12 часов)
+        int fixedAngle = (angle - 90 + 360) % 360;
+
+        int sector = ((fixedAngle + 22) / 45) % 8;
         switch (sector) {
-            case 0: return FRONT;
+            case 0: return RIGHT;
             case 1: return FRONT_RIGHT;
-            case 2: return RIGHT;
-            case 3: return RIGHT_BOTTOM;
-            case 4: return BOTTOM;
+            case 2: return FRONT;
+            case 3: return LEFT_FRONT;
+            case 4: return LEFT;
             case 5: return BOTTOM_LEFT;
-            case 6: return LEFT;
-            case 7: return LEFT_FRONT;
+            case 6: return BOTTOM;
+            case 7: return RIGHT_BOTTOM;
             default: return CENTER;
         }
     }

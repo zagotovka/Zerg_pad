@@ -37,6 +37,14 @@ android {
     buildFeatures {
         compose = true
     }
+    // Настройка имени APK файла
+    android.applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val fileName = "Zerg_pad.apk"
+            output.outputFileName = fileName
+        }
+    }
 }
 
 dependencies {

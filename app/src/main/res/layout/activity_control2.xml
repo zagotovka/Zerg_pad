@@ -143,7 +143,7 @@
                 android:scaleType="fitCenter"
                 android:layout_gravity="center_horizontal|top"/>
 
-            <!-- Квадрат (лево - 9 часов) -->
+            <!-- Квадрат (теперь ПРАВО - 3 часа) -->
             <ImageButton
                 android:id="@+id/btn_y"
                 android:layout_width="70dp"
@@ -153,9 +153,9 @@
                 android:contentDescription="@string/button_y"
                 android:padding="2dp"
                 android:scaleType="fitCenter"
-                android:layout_gravity="start|center_vertical"/>
+                android:layout_gravity="end|center_vertical" />
 
-            <!-- Круг (право - 3 часа) -->
+            <!-- Круг (теперь ЛЕВО - 9 часов) -->
             <ImageButton
                 android:id="@+id/btn_a"
                 android:layout_width="70dp"
@@ -165,7 +165,7 @@
                 android:contentDescription="@string/button_a"
                 android:padding="2dp"
                 android:scaleType="fitCenter"
-                android:layout_gravity="end|center_vertical"/>
+                android:layout_gravity="start|center_vertical" />
 
             <!-- Крест (низ - 6 часов) -->
             <ImageButton

@@ -64,7 +64,7 @@ class ControlActivity2 : ComponentActivity() {
         const val STATE_RELEASED = 0x00.toByte()
 
         const val JOYSTICK_CENTER = 127
-        const val DEADZONE_PERCENT = 15
+        const val DEADZONE_PERCENT = 3
         const val MIN_UPDATE_INTERVAL = 50L
         const val PERMISSION_REQUEST_CODE = 101
         const val ENABLE_LOG = true
@@ -170,8 +170,16 @@ class ControlActivity2 : ComponentActivity() {
     private fun setupControls() {
         joystick.setOnJoystickMoveListener(object : ZergJoystickView.OnJoystickMoveListener {
             override fun onValueChanged(angle: Int, power: Int, direction: Int) {
-                angleTextView.text = getString(R.string.angle_format, angle)
+                // ✅ Центр = 0°, иначе поворот на -90°
+                val fixedAngle = if (power < DEADZONE_PERCENT) {
+                    0
+                } else {
+                    (angle - 90 + 360) % 360
+                }
+                angleTextView.text = getString(R.string.angle_format, fixedAngle)
                 powerTextView.text = getString(R.string.power_format, power)
+
+                // Направление остаётся как есть, потому что оно уже фиксировано в ZergJoystickView
                 directionTextView.text = when (direction) {
                     ZergJoystickView.FRONT -> getString(R.string.front_lab)
                     ZergJoystickView.FRONT_RIGHT -> getString(R.string.front_right_lab)
@@ -184,7 +192,7 @@ class ControlActivity2 : ComponentActivity() {
                     else -> getString(R.string.center_lab)
                 }
 
-                // Автокалибровка при первом касании
+                // Автокалибровка
                 if (!calibrated && power < 5) {
                     calibratedCenterX = JOYSTICK_CENTER
                     calibratedCenterY = JOYSTICK_CENTER
@@ -194,7 +202,7 @@ class ControlActivity2 : ComponentActivity() {
                     logToConsole("Центр откалиброван")
                 }
 
-                processJoystickMovement(angle, power)
+                processJoystickMovement(fixedAngle, power)
             }
         })
 

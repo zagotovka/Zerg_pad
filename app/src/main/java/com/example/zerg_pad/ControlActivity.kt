@@ -159,8 +159,14 @@ class ControlActivity : ComponentActivity() {
         // Заменить старый вызов на новый интерфейс ZergJoystickView
         joystick.setOnJoystickMoveListener(object : ZergJoystickView.OnJoystickMoveListener {
             override fun onValueChanged(angle: Int, power: Int, direction: Int) {
-                updateDisplay(angle, power, direction)
-                processJoystickMovement(angle, power)
+                val fixedAngle = if (power < DEADZONE_PERCENT) {
+                    0 // В центре показываем 0°
+                } else {
+                    ((angle - 90 + 360) % 360) // Остальная логика сохраняется
+                }
+
+                updateDisplay(fixedAngle, power, direction)
+                processJoystickMovement(fixedAngle, power)
             }
         })
 

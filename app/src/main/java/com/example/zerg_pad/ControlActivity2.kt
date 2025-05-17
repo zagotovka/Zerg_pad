@@ -27,7 +27,6 @@ class ControlActivity2 : ComponentActivity() {
     private var outputStream: OutputStream? = null
     private val myuuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
-    private var logDisplay: TextView? = null
     private lateinit var angleTextView: TextView
     private lateinit var powerTextView: TextView
     private lateinit var directionTextView: TextView
@@ -67,7 +66,6 @@ class ControlActivity2 : ComponentActivity() {
         const val DEADZONE_PERCENT = 3
         const val MIN_UPDATE_INTERVAL = 50L
         const val PERMISSION_REQUEST_CODE = 101
-        const val ENABLE_LOG = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,12 +74,6 @@ class ControlActivity2 : ComponentActivity() {
         setupSystemUIListener()
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         setContentView(R.layout.activity_control2)
-
-        if (!ENABLE_LOG) {
-            findViewById<View>(R.id.log_scroll_view).visibility = View.GONE
-        } else {
-            logDisplay = findViewById(R.id.log_display)
-        }
 
         angleTextView = findViewById(R.id.angleTextView)
         powerTextView = findViewById(R.id.powerTextView)
@@ -199,7 +191,6 @@ class ControlActivity2 : ComponentActivity() {
                     xFilter.reset(calibratedCenterX)
                     yFilter.reset(calibratedCenterY)
                     calibrated = true
-                    logToConsole("Центр откалиброван")
                 }
 
                 processJoystickMovement(fixedAngle, power)
@@ -256,18 +247,18 @@ class ControlActivity2 : ComponentActivity() {
     }
 
     private fun sendCenterPosition() {
-        if (lastSentX != calibratedCenterX || lastSentY != calibratedCenterY) {
-            sendXYCoordinates(calibratedCenterX, calibratedCenterY, 0)
-            lastSentX = calibratedCenterX
-            lastSentY = calibratedCenterY
-            lastSentTime = System.currentTimeMillis()
-            isInCenter = true
+        // ВСЕГДА отправляем Power = 0 при отпускании джойстика
+        sendXYCoordinates(calibratedCenterX, calibratedCenterY, 0)
 
-            xFilter.reset(calibratedCenterX)
-            yFilter.reset(calibratedCenterY)
+        lastSentX = calibratedCenterX
+        lastSentY = calibratedCenterY
+        lastSentPower = 0
+        lastSentTime = System.currentTimeMillis()
+        isInCenter = true
 
-            logToConsole("JOY X:  +0 Y:  +0 [CENTERED]")
-        }
+        xFilter.reset(calibratedCenterX)
+        yFilter.reset(calibratedCenterY)
+
     }
 
     private fun sendPacketWithRetry(packet: ByteArray, maxRetries: Int = 2) {
@@ -301,10 +292,6 @@ class ControlActivity2 : ComponentActivity() {
         val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), pwr.toByte())
         sendPacketWithRetry(packet)
 
-        val dx = x - calibratedCenterX
-        val dy = y - calibratedCenterY
-        logToConsole("JOY X: ${"%+4d".format(dx)} Y: ${"%+4d".format(dy)} Power: $power")
-
         lastSentX = x
         lastSentY = y
         lastSentPower = power
@@ -325,7 +312,6 @@ class ControlActivity2 : ComponentActivity() {
                     if (buttonStates[buttonId] != true) {
                         buttonStates[buttonId] = true
                         sendButtonCommand(buttonCode, true)
-                        logToConsole("$buttonName pressed")
                     }
                 }
 
@@ -333,7 +319,6 @@ class ControlActivity2 : ComponentActivity() {
                     if (buttonStates[buttonId] != false) {
                         buttonStates[buttonId] = false
                         sendButtonCommand(buttonCode, false)
-                        logToConsole("$buttonName released")
                     }
                     v.performClick()
                 }
@@ -354,67 +339,6 @@ class ControlActivity2 : ComponentActivity() {
         val packet = byteArrayOf(PREFIX_BUTTON, buttonCode, state)
         sendPacketWithRetry(packet)
 
-        val pressState = if (pressed) "PRESSED" else "RELEASED"
-        logToConsole("BTN $buttonCode: $pressState [STABLE EVENT] (t=${System.currentTimeMillis()})")
-    }
-
-    private fun sendByteCommands(commands: ByteArray) {
-        if (outputStream == null) {
-            logToConsole("Bluetooth not connected, can't send commands")
-            return
-        }
-
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (ActivityCompat.checkSelfPermission(
-                        this,
-                        Manifest.permission.BLUETOOTH_CONNECT
-                    ) != PackageManager.PERMISSION_GRANTED
-                ) {
-                    logToConsole("Bluetooth permission not granted")
-                    requestBluetoothPermissions()
-                    return
-                }
-            }
-
-            if (commands.size >= 2) {
-                when (commands[0]) {
-                    PREFIX_JOYSTICK -> {
-                        if (commands[1] == PREFIX_JOYSTICK || commands[1] == PREFIX_BUTTON ||
-                            commands[2] == PREFIX_JOYSTICK || commands[2] == PREFIX_BUTTON) {
-                            Log.e("BT_Zerg2", "Invalid joystick data contains prefix byte")
-                            return
-                        }
-                    }
-                    PREFIX_BUTTON -> {
-                        if (commands[1] == PREFIX_JOYSTICK || commands[1] == PREFIX_BUTTON) {
-                            Log.e("BT_Zerg2", "Invalid button code contains prefix byte")
-                            return
-                        }
-                    }
-                }
-            }
-
-            synchronized(outputStream!!) {
-                try {
-                    outputStream?.apply {
-                        write(commands)
-                        flush()
-                    }
-                    logHexData(commands)
-                } catch (e: SecurityException) {
-                    Log.e("BT_Zerg2", "Security exception: ${e.message}")
-                    handleBluetoothPermissionError()
-                    return
-                }
-            }
-
-        } catch (e: IOException) {
-            Log.e("BT_Zerg2", "Send error: ${e.message}")
-            attemptReconnect()
-        } catch (e: InterruptedException) {
-            Log.w("BT_Zerg2", "Send interrupted", e)
-        }
     }
 
     private fun attemptReconnect() {
@@ -436,18 +360,11 @@ class ControlActivity2 : ComponentActivity() {
             btSocket = device.createRfcommSocketToServiceRecord(myuuid)
             btSocket?.connect()
             outputStream = btSocket?.outputStream
-            logToConsole("Reconnected successfully")
         } catch (e: Exception) {
             Log.e("BT_Zerg2", "Reconnect failed: ${e.message}")
         }
     }
 
-    private fun handleBluetoothPermissionError() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            requestBluetoothPermissions()
-        }
-        showToast("Bluetooth permission required")
-    }
 
     private fun logHexData(commands: ByteArray) {
         val hex = commands.joinToString(" ") {
@@ -528,11 +445,9 @@ class ControlActivity2 : ComponentActivity() {
             btSocket?.connect()
             outputStream = btSocket?.outputStream
             showToast("Connected to device")
-            logToConsole("Connected to device: ${device.name}")
         } catch (e: IOException) {
             Log.e("BT_Zerg2", "Connection failed", e)
             showToast("Failed to connect: ${e.message}")
-            logToConsole("Connection failed: ${e.message}")
         } catch (e: SecurityException) {
             Log.e("BT_Zerg2", "Security exception: ${e.message}")
             showToast("Bluetooth permission error")
@@ -544,28 +459,13 @@ class ControlActivity2 : ComponentActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
-    private fun logToConsole(message: String) {
-        Log.d("BT_Zerg2", message)
-        if (ENABLE_LOG) {
-            logDisplay?.let {
-                if (it.text.isNotEmpty()) it.append("\n")
-                it.append(message)
-                findViewById<View>(R.id.log_scroll_view)?.post {
-                    findViewById<View>(R.id.log_scroll_view)?.scrollTo(0, it.bottom)
-                }
-            }
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         try {
-            logToConsole("Closing connection")
             outputStream?.close()
             btSocket?.close()
         } catch (e: IOException) {
             Log.e("BT_Zerg2", "Error closing socket", e)
-            logToConsole("Error closing connection: ${e.message}")
         }
     }
 

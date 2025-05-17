@@ -21,14 +21,12 @@ import java.io.IOException
 import java.io.OutputStream
 import java.util.*
 import kotlin.math.*
-import kotlin.collections.ArrayList
 
 class ControlActivity : ComponentActivity() {
     private var btSocket: BluetoothSocket? = null
     private var outputStream: OutputStream? = null
     private val myuuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
-    private var logDisplay: TextView? = null
     private var angleTextView: TextView? = null
     private var powerTextView: TextView? = null
     private var directionTextView: TextView? = null
@@ -43,7 +41,6 @@ class ControlActivity : ComponentActivity() {
     private var calibratedCenterY = JOYSTICK_CENTER
 
     companion object {
-        const val ENABLE_LOG = true
         const val PREFIX_JOYSTICK = 0xF1.toByte()
         const val PREFIX_BUTTON = 0xF0.toByte()
 
@@ -67,7 +64,6 @@ class ControlActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("BT_Zerg", "ControlActivity started")
 
         setFullscreenMode()
         setupSystemUIListener()
@@ -143,12 +139,6 @@ class ControlActivity : ComponentActivity() {
     }
 
     private fun initViews() {
-        if (!ENABLE_LOG) {
-            findViewById<View>(R.id.log_scroll_view).visibility = View.GONE
-        } else {
-            logDisplay = findViewById(R.id.log_display)
-        }
-
         angleTextView = findViewById(R.id.angleTextView)
         powerTextView = findViewById(R.id.powerTextView)
         directionTextView = findViewById(R.id.directionTextView)
@@ -236,12 +226,14 @@ class ControlActivity : ComponentActivity() {
     }
 
     private fun sendCenterPosition() {
-        if (lastSentX != calibratedCenterX || lastSentY != calibratedCenterY) {
-            sendXYCoordinates(calibratedCenterX, calibratedCenterY, 0)
-            lastSentX = calibratedCenterX
-            lastSentY = calibratedCenterY
-            lastSentTime = System.currentTimeMillis()
-        }
+        // ВСЕГДА отправляем координаты центра с Power = 0
+        sendXYCoordinates(calibratedCenterX, calibratedCenterY, 0)
+
+        // Обновляем последние отправленные значения
+        lastSentX = calibratedCenterX
+        lastSentY = calibratedCenterY
+        lastSentPower = 0
+        lastSentTime = System.currentTimeMillis()
     }
     private var lastSentPower = 0
     private fun sendXYCoordinates(x: Int, y: Int, power: Int) {
@@ -251,10 +243,6 @@ class ControlActivity : ComponentActivity() {
         val pwr = power.coerceIn(0, 255)
         val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), pwr.toByte())
         sendPacketWithRetry(packet)
-
-        val dx = x - calibratedCenterX
-        val dy = y - calibratedCenterY
-        logToConsole("JOY X: ${"%+4d".format(dx)} Y: ${"%+4d".format(dy)} Power: $power")
 
         lastSentX = x
         lastSentY = y
@@ -299,14 +287,12 @@ class ControlActivity : ComponentActivity() {
                     if (buttonStates[buttonId] != true) {
                         buttonStates[buttonId] = true
                         sendButtonCommand(buttonCode, true)
-                        logToConsole("$buttonName pressed")
                     }
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     buttonStates[buttonId] = false
                     sendButtonCommand(buttonCode, false)
-                    logToConsole("$buttonName released")
                     v.performClick()
                 }
             }
@@ -396,7 +382,6 @@ class ControlActivity : ComponentActivity() {
 
             btSocket?.close()
 
-            logToConsole("Подключение к устройству: ${device.name}")
             btSocket = device.createRfcommSocketToServiceRecord(myuuid)
             btSocket?.connect()
             outputStream = btSocket?.outputStream
@@ -404,11 +389,9 @@ class ControlActivity : ComponentActivity() {
             if (outputStream == null) throw IOException("Не удалось получить OutputStream")
 
             showToast("Соединение установлено: ${device.name}")
-            logToConsole("Соединение установлено: ${device.name}")
         } catch (e: IOException) {
             Log.e("BT_Zerg", "Ошибка подключения: ${e.message}")
             showToast("Ошибка подключения: ${e.message}")
-            logToConsole("Ошибка подключения: ${e.message}")
 
             try {
                 btSocket?.close()
@@ -436,7 +419,6 @@ class ControlActivity : ComponentActivity() {
             btSocket = device.createRfcommSocketToServiceRecord(myuuid)
             btSocket?.connect()
             outputStream = btSocket?.outputStream
-            logToConsole("Повторное подключение успешно")
         } catch (e: Exception) {
             Log.e("BT_Zerg", "Ошибка повторного подключения: ${e.message}")
             showToast("Ошибка переподключения: ${e.message}")
@@ -466,7 +448,6 @@ class ControlActivity : ComponentActivity() {
 
             if (missingPermissions.isNotEmpty()) {
                 ActivityCompat.requestPermissions(this, missingPermissions, PERMISSION_REQUEST_CODE)
-                Log.d("BT_Zerg", "Запрос Bluetooth разрешений")
             }
         }
     }
@@ -476,11 +457,9 @@ class ControlActivity : ComponentActivity() {
 
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                Log.d("BT_Zerg", "Разрешения Bluetooth получены")
                 connectToBluetooth()
             } else {
                 showToast("Разрешения не получены. Bluetooth не работает.")
-                Log.e("BT_Zerg", "Разрешения Bluetooth отклонены")
             }
         }
     }
@@ -489,30 +468,13 @@ class ControlActivity : ComponentActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
-    private fun logToConsole(message: String) {
-        Log.d("BT_Zerg", message)
-
-        if (ENABLE_LOG) {
-            logDisplay?.let {
-                if (it.text.isNotEmpty()) it.append("\n")
-                it.append(message)
-
-                findViewById<View>(R.id.log_scroll_view)?.post {
-                    findViewById<View>(R.id.log_scroll_view)?.scrollTo(0, it.bottom)
-                }
-            }
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         try {
-            logToConsole("Закрытие соединения")
             outputStream?.close()
             btSocket?.close()
         } catch (e: IOException) {
             Log.e("BT_Zerg", "Ошибка при закрытии соединения", e)
-            logToConsole("Ошибка при закрытии: ${e.message}")
         }
     }
 

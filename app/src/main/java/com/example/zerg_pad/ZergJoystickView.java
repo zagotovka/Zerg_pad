@@ -324,7 +324,13 @@ public class ZergJoystickView extends View {
         double dx = xPosition - centerX;
         double dy = yPosition - centerY;
         double distance = Math.sqrt(dx * dx + dy * dy);
-        return (int) Math.min(100, (distance / joystickRadius) * 100);
+
+        // Применяем небольшую нелинейную коррекцию, чтобы легче достигать 100%
+        // но сохранить плавность между всеми значениями
+        double powerRatio = distance / joystickRadius;
+        double correctedPower = Math.min(1.0, powerRatio * (1.0 + powerRatio * 0.03));
+
+        return (int) Math.round(correctedPower * 100);
     }
 
     private int calculateDirection(int angle, int power) {

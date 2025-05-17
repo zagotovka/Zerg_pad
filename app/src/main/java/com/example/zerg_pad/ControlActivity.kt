@@ -33,6 +33,7 @@ class ControlActivity : ComponentActivity() {
     private lateinit var directionTextView: TextView
     private lateinit var joystick: ZergJoystickView
     private lateinit var btStatusText: TextView
+    private lateinit var cmdTextView: TextView  // Добавлено: TextView для команд
 
     // Filters
     private val xFilter = LowPassFilter(0.25f)
@@ -88,6 +89,7 @@ class ControlActivity : ComponentActivity() {
         powerTextView = findViewById(R.id.powerTextView)
         directionTextView = findViewById(R.id.directionTextView)
         joystick = findViewById(R.id.joystickView)
+        cmdTextView = findViewById(R.id.cmdTextView)  // Добавлено: инициализация TextView для команд
 
         setupControls()
 
@@ -132,6 +134,16 @@ class ControlActivity : ComponentActivity() {
         }
     }
 
+    // Добавлено: метод для отображения команды
+    private fun updateCommandDisplay(packet: ByteArray) {
+        runOnUiThread {
+            val cmdText = packet.joinToString(" ") { byte ->
+                byte.toInt().and(0xFF).toString(16).uppercase().padStart(2, '0')
+            }
+            cmdTextView.text = cmdText
+        }
+    }
+
     private fun processJoystickMovement(angle: Int, power: Int) {
         if (power < DEADZONE_PERCENT) {
             sendCenterPosition()
@@ -169,6 +181,7 @@ class ControlActivity : ComponentActivity() {
         if (x == lastSentX && y == lastSentY && power == lastSentPower) return
         val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), power.toByte())
         sendPacketWithRetry(packet)
+        updateCommandDisplay(packet)  // Добавлено: отображение команды
         lastSentX = x
         lastSentY = y
         lastSentPower = power
@@ -225,6 +238,7 @@ class ControlActivity : ComponentActivity() {
         val state = if (pressed) STATE_PRESSED else STATE_RELEASED
         val packet = byteArrayOf(PREFIX_BUTTON, buttonCode, state)
         sendPacketWithRetry(packet)
+        updateCommandDisplay(packet)  // Добавлено: отображение команды
     }
 
     private fun checkAndRequestPermissions(): Boolean {
@@ -459,6 +473,13 @@ class ControlActivity : ComponentActivity() {
         btMonitorTimer = null
 
         activityScope.cancel()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            setFullscreenMode()
+        }
     }
 
     private class LowPassFilter(private val alpha: Float) {

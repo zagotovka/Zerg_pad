@@ -30,6 +30,7 @@ class ControlActivity2 : ComponentActivity() {
     private lateinit var directionTextView: TextView
     private lateinit var joystick: ZergJoystickView
     private lateinit var btStatusText: TextView
+    private lateinit var cmdTextView: TextView  // Добавлено: TextView для команд
 
     private var calibratedCenterX = JOYSTICK_CENTER
     private var calibratedCenterY = JOYSTICK_CENTER
@@ -87,6 +88,7 @@ class ControlActivity2 : ComponentActivity() {
         directionTextView = findViewById(R.id.directionTextView)
         joystick = findViewById(R.id.joystickView)
         btStatusText = findViewById(R.id.bt_status_text)
+        cmdTextView = findViewById(R.id.cmdTextView)  // Добавлено: инициализация TextView для команд
 
         deviceAddress = intent.getStringExtra("device_address")?.trim()
         if (deviceAddress.isNullOrEmpty()) {
@@ -184,10 +186,21 @@ class ControlActivity2 : ComponentActivity() {
         if (x == lastSentX && y == lastSentY && power == lastSentPower) return
         val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), power.toByte())
         sendPacketWithRetry(packet)
+        updateCommandDisplay(packet)  // Добавлено: отображение команды
         lastSentX = x
         lastSentY = y
         lastSentPower = power
         lastSentTime = System.currentTimeMillis()
+    }
+
+    // Добавлено: метод для отображения команды
+    private fun updateCommandDisplay(packet: ByteArray) {
+        runOnUiThread {
+            val cmdText = packet.joinToString(" ") { byte ->
+                byte.toInt().and(0xFF).toString(16).uppercase().padStart(2, '0')
+            }
+            cmdTextView.text = cmdText
+        }
     }
 
     private fun shouldSendNewValues(x: Int, y: Int): Boolean {
@@ -255,6 +268,7 @@ class ControlActivity2 : ComponentActivity() {
         val state = if (pressed) STATE_PRESSED else STATE_RELEASED
         val packet = byteArrayOf(PREFIX_BUTTON, buttonCode, state)
         sendPacketWithRetry(packet)
+        updateCommandDisplay(packet)  // Добавлено: отображение команды
     }
 
     private fun showBtWarning() {
@@ -375,7 +389,7 @@ class ControlActivity2 : ComponentActivity() {
             outputStream?.close()
             btSocket?.close()
         } catch (e: IOException) {
-            Log.e("BT_Zerg2", "Error closing socket", e)
+            Log.e("BT_Zerg", "Ошибка при закрытии соединения", e)
         }
 
         hideBtWarning()
@@ -385,6 +399,14 @@ class ControlActivity2 : ComponentActivity() {
         btMonitorTimer = null
 
         activityScope.cancel()
+    }
+
+    // Добавьте метод здесь
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            setFullscreenMode()
+        }
     }
 
     private fun setFullscreenMode() {

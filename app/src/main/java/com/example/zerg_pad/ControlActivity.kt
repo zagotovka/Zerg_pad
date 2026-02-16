@@ -1,4 +1,4 @@
-package com.example.zerg_pad
+package com.zagotovka.zergpad
 
 import android.Manifest
 import android.bluetooth.BluetoothDevice

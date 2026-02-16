@@ -1,4 +1,4 @@
-package com.example.zerg_pad
+package com.zagotovka.zergpad
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4

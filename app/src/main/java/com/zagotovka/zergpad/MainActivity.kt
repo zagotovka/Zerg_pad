@@ -19,7 +19,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.example.zerg_pad.R
+import com.zagotovka.zergpad.R
 
 class MainActivity : ComponentActivity() {
     private var btAdapter: BluetoothAdapter? = null

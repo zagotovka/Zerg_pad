@@ -1,4 +1,4 @@
-package com.zagotovka.zergpad
+package com.zagotovka.zergpad;
 
 import android.content.Context;
 import android.graphics.Canvas;

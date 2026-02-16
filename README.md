@@ -1,59 +1,60 @@
 # Zerg_pad 
+🇷🇺 [Русская версия](README_ru.md)
+## Important
 
-## Важно 
-После скачивания проекта с GitHub рекомендую нажать кнопку "Build", чтобы подключились все библиотеки в Android Studio.
+After downloading the project from GitHub, I recommend clicking the "Build" button so that all libraries in Android Studio are connected.
 
-Проект должен работать на Android 9–16, проверял только на Android 10,14 и 16.
-В гифке показано, как переключать управление для левшей и правшей - это также удобно для проектов с простыми направлениями: вперед, назад, влево, вправо.
+The project should work on Android 9–16; I only tested it on Android 10, 14 and 16.
+The gif shows how to toggle controls for left-handed and right-handed users - this is also convenient for projects with simple directions: forward, back, left, right.
 
 <img src="images/demo.gif" width="400"/>
 
-## Обзор
-**Zerg Pad** — универсальный Bluetooth-контроллер с элементами управления для собственных проектов на Arduino, STM32, ESP32 и т.п.
-* Виртуальный джойстик с отображением угла, мощности и направления перемещения
-* (<img src="images/triangle.png" width="20"/>, <img src="images/square.png" width="20"/>, <img src="images/circle.png" width="20"/>, <img src="images/cross.png" width="20"/>), Left, Right, Select и Start - Кнопки управления для собственных функций
-* Область отображения журнала событий для мониторинга отправляемых команд
+## Overview
+**Zerg Pad** — universal Bluetooth controller with control elements for custom projects on Arduino, STM32, ESP32, etc.
+* Virtual joystick with display of angle, power, and movement direction
+* (<img src="images/triangle.png" width="20"/>, <img src="images/square.png" width="20"/>, <img src="images/circle.png" width="20"/>, <img src="images/cross.png" width="20"/>), Left, Right, Select и Start - Control buttons for custom functions
+* Event log display area for monitoring sent commands
 
-### Джойстик
-Джойстик передает данные о своем положении в формате 4-байтовой команды:
+### Joystick
+The joystick transmits its position data in a 4-byte command format:
 
-| Назначение   | Кол-во байт | Формат (HEX) | Описание                                     |
+| Purpose   | Byte count | Format (HEX) | Description                                     |
 |--------------|-------------|--------------|----------------------------------------------|
-| Префикс      | 1 байт      | 0xF1         | Обозначает, что это команда от джойстика     |
-| Координата X | 1 байт      | 0x00–0xFF    | Горизонтальное положение (0-255)             |
-| Координата Y | 1 байт      | 0x00–0xFF    | Вертикальное положение (0-255)               |
-| Мощность     | 1 байт      | 0x00–0x64    | Сила нажатия (0-100%)                        |
+| Prefix      | 1 byte      | 0xF1         | Indicates that this is a command from the joystick     |
+| Coordinate X | 1 byte      | 0x00–0xFF    | Horizontal position (0-255)             |
+| Coordinate Y | 1 byte      | 0x00–0xFF    | Vertical position (0-255)               |
+| Power     | 1 byte      | 0x00–0x64    | Press force (0-100%)                        |
 
-> **Важно:** Центральное положение: X=127 (0x7F), Y=127 (0x7F), Мощность=0 (0x00)
+> **Important:** Center position: X=127 (0x7F), Y=127 (0x7F), Power=0 (0x00)
 
-### Пример передачи данных джойстика
-Любое движение джойстика отправляет команду в формате: `F1 XX YY PP`
+### Joystick data transmission example
+Any movement of the joystick sends a command in the format: `F1 XX YY PP`
 
-| Действие      | Отправляемые байты | Описание                                  |
+| Action      | Bytes sent | Description                                  |
 |---------------|--------------------|-------------------------------------------|
-| Центр (покой) | `F1 7F 7F 00`      | Джойстик в нейтральном положении          |
-| Макс. вверх   | `F1 ~80 ~01 64`      | Максимальное отклонение вверх       |
-| Макс. вниз    | `F1 ~94 ~F9 64`      | Максимальное отклонение вниз        |
-| Макс. влево   | `F1 ~03 ~7E 64`      | Максимальное отклонение влево       |
-| Макс. вправо  | `F1 ~FA ~7F 64`      | Максимальное отклонение вправо      |
+| Center (idle) | `F1 7F 7F 00`      | Joystick in neutral position          |
+| Max up   | `F1 ~80 ~01 64`      | Maximum upward deflection       |
+| Max down    | `F1 ~94 ~F9 64`      | Maximum downward deflection        |
+| Max left   | `F1 ~03 ~7E 64`      | Maximum leftward deflection       |
+| Max right  | `F1 ~FA ~7F 64`      | Maximum rightward deflection      |
 
-Примечание: Значения координат (XX, YY) при максимальном отклонении джойстика могут варьироваться в зависимости от точного угла и точки касания. Это нормальное поведение виртуальных джойстиков. Символ ~ указывает на приблизительные значения. Значение мощности (PP) при максимальном отклонении всегда равно 100% (0x64).
+Note: Coordinate values (XX, YY) at maximum joystick deflection may vary depending on the exact angle and touch point. This is normal behavior for virtual joysticks. The ~ symbol indicates approximate values. The power value (PP) at maximum deflection is always 100% (0x64).
 
-<img src="images/joystick_diagram.svg" width="400" alt="Диаграмма джойстика"/>
+<img src="images/joystick_diagram.svg" width="400" alt="Joystick diagram"/>
 
-### Кнопки управления
-Нажатие любой кнопки отправляет 3-байтную команду:
-| Назначение   | Кол-во байт | Формат (HEX) | Описание                                     |
+### Control buttons
+Pressing any button sends a 3-byte command:
+| Purpose   | Byte count | Format (HEX) | Description                                     |
 |--------------|-------------|--------------|----------------------------------------------|
-| Префикс      | 1 байт      | 0xF0         | Обозначает, что это команда от кнопки       |
-| Код кнопки   | 1 байт      | 0x01–0x08    | Уникальный код каждой кнопки                |
-| Состояние    | 1 байт      | 0x7F/0x00    | 0x7F=нажата, 0x00=отпущена                 |
+| Prefix      | 1 byte      | 0xF0         | Indicates that this is a command from a button       |
+| Button code   | 1 byte      | 0x01–0x08    | Unique code for each button                |
+| State    | 1 byte      | 0x7F/0x00    | 0x7F=pressed, 0x00=released                 |
 
-Например: 
-- Нажатие кнопки <img src="images/circle.png" width="20"/>: `F0 01 7F` 
-- Отпускание кнопки <img src="images/circle.png" width="20"/>: `F0 01 00`
+For example: 
+- Pressing button <img src="images/circle.png" width="20"/>: `F0 01 7F` 
+- Releasing button <img src="images/circle.png" width="20"/>: `F0 01 00`
 
-| Кнопка | ID в коде | Код кнопки |
+| Button | ID in code | Button code |
 |--------|-----------|------------|
 | <img src="images/circle.png" width="20"/> | btn_a | 0x01 |
 | <img src="images/triangle.png" width="20"/> | btn_b | 0x02 |
@@ -64,23 +65,23 @@
 | Left | btn_left | 0x07 |
 | Right | btn_right | 0x08 |
 
-### Используемая библиотека
-В проекте используется модифицированная версия библиотеки [JoystickView](https://github.com/alvesoaj/JoystickView) для реализации виртуального джойстика.
+### Library used
+The project uses a modified version of the [JoystickView](https://github.com/alvesoaj/JoystickView) library to implement the virtual joystick
 
-## Совместимость
-Zerg Pad может использоваться в проектах с:
-- Arduino (через SoftwareSerial / Bluetooth HC-05)
+## Compatibility
+Zerg Pad can be used in projects with:
+- Arduino (via SoftwareSerial / Bluetooth HC-05)
 - ESP32 (Serial Bluetooth Classic)
-- STM32 (через UART Bluetooth HC-05)
-- ПК с Bluetooth (через виртуальный COM-порт)
+- STM32 (via UART Bluetooth HC-05)
+- PC with Bluetooth (via virtual COM port)
 
-### Скачать APK
-Последнюю версию приложения можно скачать:
+### Download APK
+The latest version of the application can be downloaded:
 
-1. **Прямая ссылка** (правой кнопкой мыши → "Сохранить ссылку как"):  
+1. **Direct link** (right-click → "Save link as"):  
    [Zerg_pad.apk](https://github.com/zagotovka/Zerg_pad/raw/main/download_app/Zerg_pad.apk)
 
-2. Или через страницу релизов (ЕЩЕ НЕ РЕАЛИЗОВАНО!):  
+2. Or via the releases page (NOT YET IMPLEMENTED!):  
    [Releases page](https://github.com/zagotovka/Zerg_pad/releases/latest)
 
-> При скачивании через браузер мобильного устройства выберите "Сохранить файл" в диалоговом окне.
+> When downloading via a mobile device browser, select "Save file" in the dialog box.

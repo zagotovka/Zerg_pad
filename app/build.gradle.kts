@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.zagotovka.zergpad"
         minSdk = 27
-        targetSdk = 35  // Снизили до Android 15
+        targetSdk = 35  // для Android 15
         versionCode = 2
         versionName = "1.1"
         vectorDrawables.useSupportLibrary = true

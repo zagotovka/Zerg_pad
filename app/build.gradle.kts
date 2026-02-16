@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.zerg_pad"
+    namespace = "com.zagotovka.zergpad"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.zerg_pad"
+        applicationId = "com.zagotovka.zergpad"
         minSdk = 27
         targetSdk = 33  // Снизили до Android 13
         versionCode = 1

@@ -17,7 +17,7 @@
 
 
         <!-- Джойстик СПРАВА (изменено расположение) -->
-        <com.example.zerg_pad.ZergJoystickView
+        <com.zagotovka.zergpad.ZergJoystickView
             android:id="@+id/joystickView"
             android:layout_width="250dp"
             android:layout_height="250dp"

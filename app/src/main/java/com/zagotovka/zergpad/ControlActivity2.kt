@@ -1,5 +1,6 @@
 package com.zagotovka.zergpad
 
+import com.zagotovka.zergpad.ZergJoystickView
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket

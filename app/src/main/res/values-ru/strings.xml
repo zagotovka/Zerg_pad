@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Zerg_pad</string>
+    <string name="layout_switch_label">Смена рук</string>
+    <string name="switch_on">Вкл.</string>
+    <string name="switch_off">Откл.</string>
+    <string name="enable_bluetooth_prompt">Пожалуйста, включите Bluetooth для продолжения</string>
+    <string name="swipe_down_to_refresh_hint">Проведите вниз — обновить.</string>
+</resources>

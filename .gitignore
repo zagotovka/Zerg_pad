@@ -1,0 +1,27 @@
+# Временные файлы сборки (самый главный мусор)
+.gradle/
+build/
+app/build/
+joystickView/build/
+
+# Локальные настройки и секреты
+local.properties
+.idea/workspace.xml
+.idea/gradle.xml
+.idea/assetWizardSettings.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches
+
+# Файлы подписи (КРИТИЧНО: никогда не выкладывайте их!)
+*.keystore
+*.jks
+release.keystore
+
+# Логи и временные файлы системы
+*.log
+captures/
+.externalNativeBuild/
+.cxx/
+.DS_Store
+Thumbs.db

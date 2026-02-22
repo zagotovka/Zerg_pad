@@ -1,41 +1,41 @@
 <resources>
     <string name="app_name">Zerg_pad</string>
-    <string name="enable_bluetooth_prompt">Пожалуйста, включите Bluetooth для продолжения</string>
-    <string name="swipe_down_to_refresh_hint">Проведите вниз, чтобы обновить список</string>
+    <string name="enable_bluetooth_prompt">Please enable Bluetooth to continue.</string>
+    <string name="swipe_down_to_refresh_hint">Swipe down to refresh.</string>
 
-    <string name="angle_lab">Angle:</string>
-    <string name="power_lab">Power:</string>
-    <string name="direction_lab">Direc:</string>
+    <string name="angle_lab" translatable="false">Angle:</string>
+    <string name="power_lab" translatable="false">Power:</string>
+    <string name="direction_lab" translatable="false">Direc:</string>
     <string name="none"></string>
-    <string name="front_lab">Front</string>
-    <string name="front_right_lab">Front-Right</string>
-    <string name="right_lab">Right</string>
-    <string name="right_bottom_lab">Right-Bottom</string>
-    <string name="bottom_lab">Bottom</string>
-    <string name="bottom_left_lab">Left-Bottom</string>
-    <string name="left_lab">Left</string>
-    <string name="left_front_lab">Front-Left</string>
-    <string name="center_lab">Center</string>
-    <string name="rights_lab">http://zerokol.com</string>
+    <string name="front_lab" translatable="false">Front</string>
+    <string name="front_right_lab" translatable="false">Front-Right</string>
+    <string name="right_lab" translatable="false">Right</string>
+    <string name="right_bottom_lab" translatable="false">Right-Bottom</string>
+    <string name="bottom_lab" translatable="false">Bottom</string>
+    <string name="bottom_left_lab" translatable="false">Left-Bottom</string>
+    <string name="left_lab" translatable="false">Left</string>
+    <string name="left_front_lab" translatable="false">Front-Left</string>
+    <string name="center_lab" translatable="false">Center</string>
+    <string name="rights_lab" translatable="false">http://zerokol.com</string>
 
-    <string name="angle_label">Angle:</string>
-    <string name="power_label">Power:</string>
-    <string name="direction_label">Direction:</string>
-    <string name="button_a">A</string>
-    <string name="button_b">B</string>
-    <string name="button_x">X</string>
-    <string name="button_y">Y</string>
-    <string name="button_select">SELECT</string>
-    <string name="button_start">START</string>
+    <string name="angle_label" translatable="false">Angle:</string>
+    <string name="power_label" translatable="false">Power:</string>
+    <string name="direction_label" translatable="false">Direction:</string>
+    <string name="button_a" translatable="false">A</string>
+    <string name="button_b" translatable="false">B</string>
+    <string name="button_x" translatable="false">X</string>
+    <string name="button_y" translatable="false">Y</string>
+    <string name="button_select" translatable="false">SELECT</string>
+    <string name="button_start" translatable="false">START</string>
 
-    <string name="btn_left">Left</string>
-    <string name="btn_right">Right</string>
+    <string name="btn_left" translatable="false">Left</string>
+    <string name="btn_right" translatable="false">Right</string>
 
-    <string name="angle_format">%d°</string>
-    <string name="power_format">%d%%</string>
+    <string name="angle_format" translatable="false">%d°</string>
+    <string name="power_format" translatable="false">%d%%</string>
 
-    <string name="layout_switch_label">Поменять местами джойстик и кнопки</string>
-    <string name="switch_on">Вкл.</string>
-    <string name="switch_off">Откл.</string>
+    <string name="layout_switch_label">Switch layout</string>
+    <string name="switch_on">On</string>
+    <string name="switch_off">Off</string>
 
 </resources>

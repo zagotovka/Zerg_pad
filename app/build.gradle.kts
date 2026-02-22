@@ -12,8 +12,8 @@ android {
         applicationId = "com.zagotovka.zergpad"
         minSdk = 27
         targetSdk = 35  // для Android 15
-        versionCode = 3
-        versionName = "1.3"
+        versionCode = 4
+        versionName = "1.4"
         vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

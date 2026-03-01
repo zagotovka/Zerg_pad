@@ -1,7 +1,31 @@
 <resources>
     <string name="app_name">Zerg_pad</string>
     <string name="enable_bluetooth_prompt">Please enable Bluetooth to continue.</string>
+    <string name="no_paired_devices_prompt">No paired devices. Please pair in your Bluetooth settings.</string>
     <string name="swipe_down_to_refresh_hint">Swipe down to refresh.</string>
+    <string name="bluetooth_permissions_required">Bluetooth permissions are required for this app to work</string>
+    <string name="bluetooth_permissions_required_for_app">Bluetooth permissions are required for the application to work.</string>
+    <string name="bluetooth_manager_not_available">Bluetooth Manager not available</string>
+    <string name="bluetooth_manager_not_available_on_device">Bluetooth Manager is not available on this device</string>
+    <string name="bluetooth_not_supported_on_device">Bluetooth is not supported on this device</string>
+    <string name="bluetooth_connect_permission_missing">BLUETOOTH_CONNECT permission is missing</string>
+    <string name="permission_missing_for_paired_devices">Permission to access paired devices is missing</string>
+    <string name="security_error_accessing_devices">Security error when accessing devices</string>
+    <string name="device_name_unavailable_permission_missing">Name Unavailable (Permission Missing)</string>
+    <string name="unknown_device">Unknown Device</string>
+    <string name="could_not_get_device_info">Could not get device information (possibly due to permissions).</string>
+
+    <!-- Strings for ControlActivity -->
+    <string name="bt_adapter_not_found">Bluetooth adapter not found</string>
+    <string name="device_address_not_received">Device address not received</string>
+    <string name="connection_error">Connection error: %s</string>
+    <string name="connected_to">Connected to %s</string>
+    <string name="bt_connection_lost">Lost connection with BT!</string>
+
+    <!-- Additional strings for ControlActivity2 -->
+    <string name="device_address_missing">Device address is missing</string>
+    <string name="connected_to_device">Connected to device</string>
+    <string name="bt_permission_error">Bluetooth permission error</string>
 
     <string name="angle_lab" translatable="false">Angle:</string>
     <string name="power_lab" translatable="false">Power:</string>

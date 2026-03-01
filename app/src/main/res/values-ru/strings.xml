@@ -5,5 +5,29 @@
     <string name="switch_on">Вкл.</string>
     <string name="switch_off">Откл.</string>
     <string name="enable_bluetooth_prompt">Пожалуйста, включите Bluetooth для продолжения</string>
+    <string name="no_paired_devices_prompt">Нет сопряженных устройств. Пожалуйста, выполните сопряжение в настройках Bluetooth.</string>
     <string name="swipe_down_to_refresh_hint">Проведите вниз — обновить.</string>
+    <string name="bluetooth_permissions_required">Для работы этого приложения требуются разрешения Bluetooth</string>
+    <string name="bluetooth_permissions_required_for_app">Необходимы разрешения Bluetooth для работы приложения.</string>
+    <string name="bluetooth_manager_not_available">Bluetooth Manager недоступен</string>
+    <string name="bluetooth_manager_not_available_on_device">Bluetooth Manager недоступен на этом устройстве</string>
+    <string name="bluetooth_not_supported_on_device">Bluetooth не поддерживается на этом устройстве</string>
+    <string name="bluetooth_connect_permission_missing">Отсутствует разрешение BLUETOOTH_CONNECT</string>
+    <string name="permission_missing_for_paired_devices">Нет разрешения для доступа к сопряженным устройствам</string>
+    <string name="security_error_accessing_devices">Ошибка безопасности при доступе к устройствам</string>
+    <string name="device_name_unavailable_permission_missing">Имя недоступно (нет разрешения)</string>
+    <string name="unknown_device">Неизвестное устройство</string>
+    <string name="could_not_get_device_info">Не удалось получить информацию об устройствах (возможно, из-за разрешений).</string>
+
+    <!-- Строки для ControlActivity -->
+    <string name="bt_adapter_not_found">Bluetooth адаптер не найден</string>
+    <string name="device_address_not_received">Адрес устройства не получен</string>
+    <string name="connection_error">Ошибка подключения: %s</string>
+    <string name="connected_to">Соединено с %s</string>
+    <string name="bt_connection_lost">Потерянная связь с BT!</string>
+
+    <!-- Дополнительные строки для ControlActivity2 -->
+    <string name="device_address_missing">Адрес устройства отсутствует</string>
+    <string name="connected_to_device">Соединено с устройством</string>
+    <string name="bt_permission_error">Ошибка разрешений Bluetooth</string>
 </resources>

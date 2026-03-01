@@ -1,6 +1,5 @@
 package com.zagotovka.zergpad
 
-import com.zagotovka.zergpad.ZergJoystickView
 import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
@@ -34,7 +33,7 @@ class ControlActivity : ComponentActivity() {
     private lateinit var directionTextView: TextView
     private lateinit var joystick: ZergJoystickView
     private lateinit var btStatusText: TextView
-    private lateinit var cmdTextView: TextView  // Добавлено: TextView для команд
+    private lateinit var cmdTextView: TextView
 
     // Filters
     private val xFilter = LowPassFilter(0.25f)
@@ -50,7 +49,6 @@ class ControlActivity : ComponentActivity() {
     private var btWarningVisible = false
     private var btWarningTimer: Timer? = null
     private var btMonitorTimer: Timer? = null
-    private var showRussian = true
 
     // CoroutineScope
     private val activityScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -90,7 +88,7 @@ class ControlActivity : ComponentActivity() {
         powerTextView = findViewById(R.id.powerTextView)
         directionTextView = findViewById(R.id.directionTextView)
         joystick = findViewById(R.id.joystickView)
-        cmdTextView = findViewById(R.id.cmdTextView)  // Добавлено: инициализация TextView для команд
+        cmdTextView = findViewById(R.id.cmdTextView)
 
         setupControls()
 
@@ -135,7 +133,6 @@ class ControlActivity : ComponentActivity() {
         }
     }
 
-    // Добавлено: метод для отображения команды
     private fun updateCommandDisplay(packet: ByteArray) {
         runOnUiThread {
             val cmdText = packet.joinToString(" ") { byte ->
@@ -182,7 +179,7 @@ class ControlActivity : ComponentActivity() {
         if (x == lastSentX && y == lastSentY && power == lastSentPower) return
         val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), power.toByte())
         sendPacketWithRetry(packet)
-        updateCommandDisplay(packet)  // Добавлено: отображение команды
+        updateCommandDisplay(packet)
         lastSentX = x
         lastSentY = y
         lastSentPower = power
@@ -239,7 +236,7 @@ class ControlActivity : ComponentActivity() {
         val state = if (pressed) STATE_PRESSED else STATE_RELEASED
         val packet = byteArrayOf(PREFIX_BUTTON, buttonCode, state)
         sendPacketWithRetry(packet)
-        updateCommandDisplay(packet)  // Добавлено: отображение команды
+        updateCommandDisplay(packet)
     }
 
     private fun checkAndRequestPermissions(): Boolean {
@@ -280,20 +277,19 @@ class ControlActivity : ComponentActivity() {
         try {
             val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
             val btAdapter = btManager?.adapter ?: run {
-                showToast("Bluetooth адаптер не найден")
+                showToast(getString(R.string.bt_adapter_not_found))
                 return
             }
 
             val deviceAddress = intent.getStringExtra("device_address") ?: run {
-                showToast("Адрес устройства не получен")
+                showToast(getString(R.string.device_address_not_received))
                 return
             }
 
             val device = btAdapter.getRemoteDevice(deviceAddress)
-
             connectToDevice(device)
         } catch (e: Exception) {
-            showToast("Ошибка подключения: ${e.message}")
+            showToast(getString(R.string.connection_error, e.message ?: ""))
             Log.e("BT_Zerg", "Ошибка подключения", e)
         }
     }
@@ -313,34 +309,11 @@ class ControlActivity : ComponentActivity() {
             outputStream = btSocket?.outputStream
 
             hideBtWarning()
-            showToast("Соединено с ${device.name}")
+            showToast(getString(R.string.connected_to, device.name ?: "Unknown"))
         } catch (e: IOException) {
-            showToast("Ошибка подключения: ${e.message}")
+            showToast(getString(R.string.connection_error, e.message ?: ""))
             Log.e("BT_Zerg", "Ошибка соединения", e)
             showBtWarning()
-        }
-    }
-
-    private fun attemptReconnect() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestBluetoothPermissions()
-                return
-            }
-
-            btSocket?.close()
-            val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-            val deviceAddress = intent.getStringExtra("device_address") ?: return
-            val device = btManager.adapter.getRemoteDevice(deviceAddress)
-            btSocket = device.createRfcommSocketToServiceRecord(myuuid)
-            btSocket?.connect()
-            outputStream = btSocket?.outputStream
-            hideBtWarning()
-        } catch (e: Exception) {
-            showBtWarning()
-            Log.e("BT_Zerg", "Ошибка переподключения", e)
         }
     }
 
@@ -350,20 +323,19 @@ class ControlActivity : ComponentActivity() {
 
         runOnUiThread {
             btStatusText.visibility = View.VISIBLE
+            btStatusText.text = getString(R.string.bt_connection_lost)
         }
 
         btWarningTimer = Timer()
         btWarningTimer?.scheduleAtFixedRate(object : TimerTask() {
+            private var visible = true
             override fun run() {
                 runOnUiThread {
-                    btStatusText.text = if (showRussian)
-                        "Потерянная связь с BT!"
-                    else
-                        "Lost connection with BT!"
-                    showRussian = !showRussian
+                    btStatusText.alpha = if (visible) 1.0f else 0.0f
+                    visible = !visible
                 }
             }
-        }, 0, 1000)
+        }, 0, 500)
     }
 
     private fun hideBtWarning() {

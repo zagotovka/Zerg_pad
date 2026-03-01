@@ -19,7 +19,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.zagotovka.zergpad.R
 
 class MainActivity : ComponentActivity() {
     private var btAdapter: BluetoothAdapter? = null
@@ -37,10 +36,10 @@ class MainActivity : ComponentActivity() {
             initializeBluetooth()
         } else {
             Log.w(tag, "Not all permissions granted.")
-            showToast("Bluetooth permissions are required for this app to work")
+            showToast(getString(R.string.bluetooth_permissions_required))
             // Показываем ошибку в TextView
             if (::bluetoothStatusTextView.isInitialized) { // Проверка на инициализацию
-                bluetoothStatusTextView.text = "Необходимы разрешения Bluetooth для работы приложения."
+                bluetoothStatusTextView.text = getString(R.string.bluetooth_permissions_required_for_app)
                 bluetoothStatusTextView.visibility = View.VISIBLE
             }
         }
@@ -178,21 +177,21 @@ class MainActivity : ComponentActivity() {
 
     private fun initializeBluetooth() {
         Log.d(tag, "Initializing Bluetooth...")
-        val btManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?
+        val btManager = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager?
         if (btManager == null) {
             Log.e(tag, "BluetoothManager not available.")
-            bluetoothStatusTextView.text = "Bluetooth Manager недоступен"
+            bluetoothStatusTextView.text = getString(R.string.bluetooth_manager_not_available)
             bluetoothStatusTextView.visibility = View.VISIBLE
-            showToast("Bluetooth Manager недоступен на этом устройстве")
+            showToast(getString(R.string.bluetooth_manager_not_available_on_device))
             return
         }
 
         btAdapter = btManager.adapter
         if (btAdapter == null) {
             Log.e(tag, "BluetoothAdapter not available.")
-            bluetoothStatusTextView.text = "Bluetooth не поддерживается на этом устройстве"
+            bluetoothStatusTextView.text = getString(R.string.bluetooth_not_supported_on_device)
             bluetoothStatusTextView.visibility = View.VISIBLE
-            showToast("Это устройство не поддерживает Bluetooth")
+            showToast(getString(R.string.bluetooth_not_supported_on_device))
             return
         }
 
@@ -216,7 +215,7 @@ class MainActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                     Log.e(tag, "BLUETOOTH_CONNECT permission missing before getting paired devices.")
-                    bluetoothStatusTextView.text = "Отсутствует разрешение BLUETOOTH_CONNECT"
+                    bluetoothStatusTextView.text = getString(R.string.bluetooth_connect_permission_missing)
                     bluetoothStatusTextView.visibility = View.VISIBLE
                     // Можно снова запросить разрешения или просто ждать
                     // checkAndRequestPermissions() // Запросить снова?
@@ -237,13 +236,13 @@ class MainActivity : ComponentActivity() {
             return // Не можем получить устройства, если адаптер не готов
         }
 
-        var pairedDevices: Set<BluetoothDevice>? = null
+        val pairedDevices: Set<BluetoothDevice>?
         try {
             // Проверка разрешения ПЕРЕД вызовом bondedDevices (критично для Android 12+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                     Log.e(tag, "BLUETOOTH_CONNECT permission check failed in getPairedDevices.")
-                    bluetoothStatusTextView.text = "Нет разрешения для доступа к сопряженным устройствам"
+                    bluetoothStatusTextView.text = getString(R.string.permission_missing_for_paired_devices)
                     bluetoothStatusTextView.visibility = View.VISIBLE
                     return // Выходим, если нет разрешения
                 }
@@ -255,7 +254,7 @@ class MainActivity : ComponentActivity() {
 
         } catch (se: SecurityException) {
             Log.e(tag, "SecurityException getting bonded devices: ${se.message}")
-            bluetoothStatusTextView.text = "Ошибка безопасности при доступе к устройствам"
+            bluetoothStatusTextView.text = getString(R.string.security_error_accessing_devices)
             bluetoothStatusTextView.visibility = View.VISIBLE
             return // Выходим при ошибке безопасности
         }
@@ -263,7 +262,7 @@ class MainActivity : ComponentActivity() {
 
         if (pairedDevices.isNullOrEmpty()) {
             Log.w(tag, "No paired devices found.")
-            bluetoothStatusTextView.text = "Нет сопряженных устройств. Пожалуйста, выполните сопряжение в настройках Bluetooth."
+            bluetoothStatusTextView.text = getString(R.string.no_paired_devices_prompt)
             bluetoothStatusTextView.visibility = View.VISIBLE
             // showToast("No paired devices found") // Можно заменить на TextView
             return
@@ -271,14 +270,14 @@ class MainActivity : ComponentActivity() {
 
         // Преобразуем список устройств в строки
         val deviceList = pairedDevices.mapNotNull { device ->
-            var deviceName: String? = null
+            var deviceName: String?
             try {
                 // Проверка разрешения перед доступом к имени (Android 12+)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
                         Log.w(tag, "BLUETOOTH_CONNECT permission missing for device.name for address: ${device.address}")
                         // Имя не можем получить, вернем хотя бы адрес
-                        deviceName = "Name Unavailable (Permission Missing)"
+                        deviceName = getString(R.string.device_name_unavailable_permission_missing)
                     } else {
                         deviceName = device.name // Получаем имя, если разрешение есть
                     }
@@ -288,7 +287,7 @@ class MainActivity : ComponentActivity() {
 
                 // Если имя все еще null или пустое после проверок
                 if (deviceName.isNullOrBlank()) {
-                    deviceName = "Unknown Device"
+                    deviceName = getString(R.string.unknown_device)
                 }
 
                 val address = device.address
@@ -308,7 +307,7 @@ class MainActivity : ComponentActivity() {
 
         if (deviceList.isEmpty()) {
             Log.w(tag, "Device list is empty after filtering/mapping.")
-            bluetoothStatusTextView.text = "Не удалось получить информацию об устройствах (возможно, из-за разрешений)."
+            bluetoothStatusTextView.text = getString(R.string.could_not_get_device_info)
             bluetoothStatusTextView.visibility = View.VISIBLE
             // showToast("No devices to display")
             return

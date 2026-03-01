@@ -12,8 +12,8 @@ android {
         applicationId = "com.zagotovka.zergpad"
         minSdk = 27
         targetSdk = 35  // для Android 15
-        versionCode = 4
-        versionName = "1.4"
+        versionCode = 5
+        versionName = "1.5"
         vectorDrawables.useSupportLibrary = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +36,11 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
     // Настройка имени APK файла
     android.applicationVariants.all {

@@ -1,6 +1,5 @@
 package com.zagotovka.zergpad
 
-import com.zagotovka.zergpad.ZergJoystickView
 import android.Manifest
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
@@ -31,7 +30,7 @@ class ControlActivity2 : ComponentActivity() {
     private lateinit var directionTextView: TextView
     private lateinit var joystick: ZergJoystickView
     private lateinit var btStatusText: TextView
-    private lateinit var cmdTextView: TextView  // Добавлено: TextView для команд
+    private lateinit var cmdTextView: TextView
 
     private var calibratedCenterX = JOYSTICK_CENTER
     private var calibratedCenterY = JOYSTICK_CENTER
@@ -51,7 +50,6 @@ class ControlActivity2 : ComponentActivity() {
     private var btWarningVisible = false
     private var btWarningTimer: Timer? = null
     private var btMonitorTimer: Timer? = null
-    private var showRussian = true
 
     private val activityScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -89,11 +87,11 @@ class ControlActivity2 : ComponentActivity() {
         directionTextView = findViewById(R.id.directionTextView)
         joystick = findViewById(R.id.joystickView)
         btStatusText = findViewById(R.id.bt_status_text)
-        cmdTextView = findViewById(R.id.cmdTextView)  // Добавлено: инициализация TextView для команд
+        cmdTextView = findViewById(R.id.cmdTextView)
 
         deviceAddress = intent.getStringExtra("device_address")?.trim()
         if (deviceAddress.isNullOrEmpty()) {
-            showToast("Device address is missing")
+            showToast(getString(R.string.device_address_missing))
             finish()
             return
         }
@@ -187,14 +185,13 @@ class ControlActivity2 : ComponentActivity() {
         if (x == lastSentX && y == lastSentY && power == lastSentPower) return
         val packet = byteArrayOf(PREFIX_JOYSTICK, x.toByte(), y.toByte(), power.toByte())
         sendPacketWithRetry(packet)
-        updateCommandDisplay(packet)  // Добавлено: отображение команды
+        updateCommandDisplay(packet)
         lastSentX = x
         lastSentY = y
         lastSentPower = power
         lastSentTime = System.currentTimeMillis()
     }
 
-    // Добавлено: метод для отображения команды
     private fun updateCommandDisplay(packet: ByteArray) {
         runOnUiThread {
             val cmdText = packet.joinToString(" ") { byte ->
@@ -269,7 +266,7 @@ class ControlActivity2 : ComponentActivity() {
         val state = if (pressed) STATE_PRESSED else STATE_RELEASED
         val packet = byteArrayOf(PREFIX_BUTTON, buttonCode, state)
         sendPacketWithRetry(packet)
-        updateCommandDisplay(packet)  // Добавлено: отображение команды
+        updateCommandDisplay(packet)
     }
 
     private fun showBtWarning() {
@@ -278,20 +275,19 @@ class ControlActivity2 : ComponentActivity() {
 
         runOnUiThread {
             btStatusText.visibility = View.VISIBLE
+            btStatusText.text = getString(R.string.bt_connection_lost)
         }
 
         btWarningTimer = Timer()
         btWarningTimer?.scheduleAtFixedRate(object : TimerTask() {
+            private var visible = true
             override fun run() {
                 runOnUiThread {
-                    btStatusText.text = if (showRussian)
-                        "Потерянная связь с BT!"
-                    else
-                        "Lost connection with BT!"
-                    showRussian = !showRussian
+                    btStatusText.alpha = if (visible) 1.0f else 0.0f
+                    visible = !visible
                 }
             }
-        }, 0, 1000)
+        }, 0, 500)
     }
 
     private fun hideBtWarning() {
@@ -366,14 +362,14 @@ class ControlActivity2 : ComponentActivity() {
             btSocket = device.createRfcommSocketToServiceRecord(myuuid)
             btSocket?.connect()
             outputStream = btSocket?.outputStream
-            showToast("Connected to device")
+            showToast(getString(R.string.connected_to_device))
         } catch (e: IOException) {
             Log.e("BT_Zerg2", "Connection failed", e)
-            showToast("Failed to connect: ${e.message}")
+            showToast(getString(R.string.connection_error, e.message ?: ""))
             showBtWarning()
         } catch (e: SecurityException) {
             Log.e("BT_Zerg2", "Security exception: ${e.message}")
-            showToast("Bluetooth permission error")
+            showToast(getString(R.string.bt_permission_error))
             requestBluetoothPermissions()
         }
     }
@@ -402,7 +398,6 @@ class ControlActivity2 : ComponentActivity() {
         activityScope.cancel()
     }
 
-    // Добавьте метод здесь
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
@@ -457,7 +452,6 @@ class ControlActivity2 : ComponentActivity() {
         }
     }
 
-    // === Класс фильтра для сглаживания движения джойстика ===
     private class LowPassFilter(private val alpha: Float) {
         private var lastValue = JOYSTICK_CENTER.toFloat()
 

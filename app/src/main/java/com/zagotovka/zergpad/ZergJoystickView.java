@@ -27,7 +27,7 @@ public class ZergJoystickView extends View {
     // Configuration constants
     private static final int DEFAULT_LOOP_INTERVAL = 50; // ms
     private static final int MIN_CHANGE_THRESHOLD = 5; // минимальное изменение для отправки
-    private static final int DEFAULT_RAY_WIDTH = 10;
+    private static final int DEFAULT_RAY_WIDTH = 6;
     private static final float BUTTON_SIZE_RATIO = 0.25f;
     private static final float JOYSTICK_SIZE_RATIO = 0.75f;
     private static final float INNER_CIRCLE_RATIO = 1.5f;
@@ -38,6 +38,7 @@ public class ZergJoystickView extends View {
     private final Paint mainCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint buttonPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint arrowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint rayPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint clearPaint = new Paint();
     private final Path rayPath = new Path();
 
@@ -59,6 +60,10 @@ public class ZergJoystickView extends View {
     private int lastSentAngle;
     private int lastSentPower;
 
+    // Skin settings
+    private boolean isNeonMode = false;
+    private int handlePressedColor = Color.parseColor("#FFFF00"); // Yellow for pressed state
+
     public ZergJoystickView(Context context) {
         super(context);
         init();
@@ -75,21 +80,49 @@ public class ZergJoystickView extends View {
     }
 
     private void init() {
-        // Main circle (gray background)
+        // Default Classic Style
         mainCirclePaint.setColor(Color.parseColor("#7f7f7f"));
         mainCirclePaint.setStyle(Paint.Style.FILL_AND_STROKE);
 
-        // Button (blue joystick)
         buttonPaint.setColor(Color.parseColor("#0066FF"));
         buttonPaint.setStyle(Paint.Style.FILL);
 
-        // Arrows (white indicators)
         arrowPaint.setColor(Color.WHITE);
         arrowPaint.setStyle(Paint.Style.FILL);
 
-        // Clear paint for transparent areas
+        rayPaint.setColor(Color.WHITE);
+        rayPaint.setStyle(Paint.Style.STROKE);
+        rayPaint.setStrokeWidth(DEFAULT_RAY_WIDTH);
+
         clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
         clearPaint.setAntiAlias(true);
+    }
+
+    /**
+     * Applies skin colors to the joystick.
+     */
+    public void setJoystickColors(int mainColor, int handleColor, int arrowColor, boolean isNeon) {
+        this.isNeonMode = isNeon;
+        
+        if (isNeon) {
+            mainCirclePaint.setStyle(Paint.Style.STROKE);
+            mainCirclePaint.setStrokeWidth(12);
+            mainCirclePaint.setColor(mainColor);
+            
+            buttonPaint.setColor(handleColor);
+            arrowPaint.setColor(arrowColor);
+            rayPaint.setColor(mainColor);
+            rayPaint.setStrokeWidth(6);
+        } else {
+            mainCirclePaint.setStyle(Paint.Style.FILL_AND_STROKE);
+            mainCirclePaint.setStrokeWidth(0);
+            mainCirclePaint.setColor(mainColor);
+            
+            buttonPaint.setColor(handleColor);
+            arrowPaint.setColor(arrowColor);
+            rayPaint.setColor(Color.WHITE);
+        }
+        invalidate();
     }
 
     @Override
@@ -126,18 +159,40 @@ public class ZergJoystickView extends View {
     }
 
     private void drawMainComponents(Canvas canvas) {
-        // Draw main circle
+        // Draw main circle (Stroke in Neon, Fill in Classic)
         canvas.drawCircle((float) centerX, (float) centerY, joystickRadius, mainCirclePaint);
 
-        // Draw transparent rays
-        createRayPath();
-        canvas.drawPath(rayPath, clearPaint);
-
-        // Draw inner transparent circle
-        canvas.drawCircle((float) centerX, (float) centerY, innerCircleRadius, clearPaint);
+        if (isNeonMode) {
+            // In Neon mode, rays are colored lines
+            drawNeonRays(canvas);
+        } else {
+            // In Classic mode, rays are transparent "cuts"
+            createRayPath();
+            canvas.drawPath(rayPath, clearPaint);
+            canvas.drawCircle((float) centerX, (float) centerY, innerCircleRadius, clearPaint);
+        }
 
         // Draw direction arrows
         drawDirectionArrows(canvas);
+    }
+
+    private void drawNeonRays(Canvas canvas) {
+        float startRadius = innerCircleRadius + 10;
+        float endRadius = joystickRadius - 10;
+        
+        for (int angle = 45; angle < 360; angle += 90) {
+            double radians = Math.toRadians(angle);
+            float cos = (float) Math.cos(radians);
+            float sin = (float) Math.sin(radians);
+            
+            canvas.drawLine(
+                (float) (centerX + cos * startRadius),
+                (float) (centerY + sin * startRadius),
+                (float) (centerX + cos * endRadius),
+                (float) (centerY + sin * endRadius),
+                rayPaint
+            );
+        }
     }
 
     private void createRayPath() {
@@ -193,7 +248,17 @@ public class ZergJoystickView extends View {
     }
 
     private void drawButton(Canvas canvas) {
+        // Change color if pressed in Neon mode
+        int originalColor = buttonPaint.getColor();
+        if (isJoystickActive && isNeonMode) {
+            buttonPaint.setColor(handlePressedColor);
+            // Optional: add a glow effect here if needed
+        }
+        
         canvas.drawCircle(xPosition, yPosition, buttonRadius, buttonPaint);
+        
+        // Restore color
+        buttonPaint.setColor(originalColor);
     }
 
     @Override

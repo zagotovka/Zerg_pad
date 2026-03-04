@@ -7,6 +7,7 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -90,11 +91,39 @@ class ControlActivity : ComponentActivity() {
         joystick = findViewById(R.id.joystickView)
         cmdTextView = findViewById(R.id.cmdTextView)
 
+        val skinIndex = intent.getIntExtra("skin_index", 0)
+        applySkin(skinIndex)
+
         setupControls()
 
         if (checkAndRequestPermissions()) {
             connectToBluetooth()
             startBtMonitor()
+        }
+    }
+
+    private fun applySkin(skinIndex: Int) {
+        if (skinIndex == 1) { // Neon
+            findViewById<View>(android.R.id.content).setBackgroundColor(Color.BLACK)
+            window.statusBarColor = Color.BLACK
+            
+            joystick.setJoystickColors(
+                Color.parseColor("#00FFFF"), // Cyan ring
+                Color.parseColor("#00FFFF"), // Cyan handle
+                Color.WHITE,                 // White arrows
+                true                         // Neon mode ON
+            )
+
+            // Применяем неоновые фоны кнопкам
+            findViewById<View>(R.id.btn_start).setBackgroundResource(R.drawable.btn_neon_blue)
+            findViewById<View>(R.id.btn_select).setBackgroundResource(R.drawable.btn_neon_blue)
+            findViewById<View>(R.id.btn_left).setBackgroundResource(R.drawable.btn_neon_blue)
+            findViewById<View>(R.id.btn_right).setBackgroundResource(R.drawable.btn_neon_blue)
+
+            findViewById<View>(R.id.btn_b).setBackgroundResource(R.drawable.btn_neon_triangle)
+            findViewById<View>(R.id.btn_a).setBackgroundResource(R.drawable.btn_neon_circle)
+            findViewById<View>(R.id.btn_x).setBackgroundResource(R.drawable.btn_neon_cross)
+            findViewById<View>(R.id.btn_y).setBackgroundResource(R.drawable.btn_neon_square)
         }
     }
 

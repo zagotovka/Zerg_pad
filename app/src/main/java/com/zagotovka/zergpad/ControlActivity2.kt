@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -89,6 +90,9 @@ class ControlActivity2 : ComponentActivity() {
         btStatusText = findViewById(R.id.bt_status_text)
         cmdTextView = findViewById(R.id.cmdTextView)
 
+        val skinIndex = intent.getIntExtra("skin_index", 0)
+        applySkin(skinIndex)
+
         deviceAddress = intent.getStringExtra("device_address")?.trim()
         if (deviceAddress.isNullOrEmpty()) {
             showToast(getString(R.string.device_address_missing))
@@ -108,6 +112,31 @@ class ControlActivity2 : ComponentActivity() {
 
         connectToBluetooth()
         startBtMonitor()
+    }
+
+    private fun applySkin(skinIndex: Int) {
+        if (skinIndex == 1) { // Neon
+            findViewById<View>(android.R.id.content).setBackgroundColor(Color.BLACK)
+            window.statusBarColor = Color.BLACK
+            
+            joystick.setJoystickColors(
+                Color.parseColor("#00FFFF"), // Cyan ring
+                Color.parseColor("#00FFFF"), // Cyan handle
+                Color.WHITE,                 // White arrows
+                true                         // Neon mode ON
+            )
+
+            // Применяем неоновые фоны кнопкам
+            findViewById<View>(R.id.btn_start).setBackgroundResource(R.drawable.btn_neon_blue)
+            findViewById<View>(R.id.btn_select).setBackgroundResource(R.drawable.btn_neon_blue)
+            findViewById<View>(R.id.btn_left).setBackgroundResource(R.drawable.btn_neon_blue)
+            findViewById<View>(R.id.btn_right).setBackgroundResource(R.drawable.btn_neon_blue)
+
+            findViewById<View>(R.id.btn_b).setBackgroundResource(R.drawable.btn_neon_triangle)
+            findViewById<View>(R.id.btn_a).setBackgroundResource(R.drawable.btn_neon_circle)
+            findViewById<View>(R.id.btn_x).setBackgroundResource(R.drawable.btn_neon_cross)
+            findViewById<View>(R.id.btn_y).setBackgroundResource(R.drawable.btn_neon_square)
+        }
     }
 
     private fun setupControls() {

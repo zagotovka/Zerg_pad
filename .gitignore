@@ -1,27 +1,35 @@
-# Временные файлы сборки (самый главный мусор)
+# Временные файлы сборки (все модули и корень)
 .gradle/
 build/
-app/build/
-joystickView/build/
+**/build/
 
-# Локальные настройки и секреты
+# IDE: Android Studio / IntelliJ IDEA (полный игнор папки)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Локальные настройки и секреты (НИКОГДА не коммитить)
 local.properties
-.idea/workspace.xml
-.idea/gradle.xml
-.idea/assetWizardSettings.xml
-.idea/dictionaries
-.idea/libraries
-.idea/caches
-
-# Файлы подписи (КРИТИЧНО: никогда не выкладывайте их!)
-*.keystore
 *.jks
+*.keystore
 release.keystore
+google-services.json
 
-# Логи и временные файлы системы
+# Логи, дампы памяти и временные файлы системы
 *.log
 captures/
 .externalNativeBuild/
 .cxx/
 .DS_Store
 Thumbs.db
+*.hprof
+
+# Сгенерированные артефакты
+*.apk
+*.aab
+output-metadata.json
+
+# Настройки эмулятора и профилирования
+.navigation/
+assetWizardSettings.xml

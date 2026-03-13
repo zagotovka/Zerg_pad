@@ -4,7 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#222222"
+    android:background="#000000"
     android:padding="8dp">
 
     <!-- Основная панель (джойстик + кнопки) -->
@@ -32,7 +32,7 @@
             android:layout_height="wrap_content"
             android:layout_centerHorizontal="true"
             android:layout_centerVertical="true"
-            android:background="#333333"
+            android:background="@android:color/transparent"
             android:gravity="center"
             android:orientation="vertical"
             android:padding="16dp">
@@ -229,7 +229,7 @@
             android:text="Потерянная связь с BT!"
             android:textColor="#FF4444"
             android:textSize="24sp"
-            android:background="#222222"
+            android:background="@android:color/transparent"
             android:padding="12dp"
             android:textStyle="bold"
             android:elevation="10dp"/>
